@@ -1,0 +1,51 @@
+while(True) :
+    if (IsPhone == False) :
+        if (smart.is_connected() == True):
+
+            #스마트폰과 연결되었는지 확인.            
+            smart.wait_connected()
+
+            #스마트폰 화면을 가로로 설정. (0:자동, 1:세로, 2:가로)            
+            smart.display.screen_orientation(2)
+            delay(500)
+            #동작하고 있는 카메라가 있다면 닫아준다.
+
+            #0:닫기, 1:색상, 2:얼굴감지, 3:스트리밍, 4:마커, 5:레인, 6:감정, 7:손 
+            # (English) rpi.mode(0)#0: Close, 1:Color, 2: Facial Detection, 3:Streaming, 4: Marker, 5: Lane, 6: Emotion, 7: Hands            
+            rpi.mode(3)
+
+            #스마트폰 스트리밍 영상화면 0:닫기, 1:표시 
+            smart.write8(10700, 1) 
+
+            #화면의 해상도를 가져와 CVar.nScreenWidth, CVar.nScreenHeight 에 넣어준다.
+            GetResolution()
+
+            # 배경 이미지를 출력           
+            ShowPage(_PAGE_MAIN)
+            IsPhone = True
+    else :
+
+        #스마트폰의 터치 입력을 확인      
+        GetTouch_Down()
+        if (nTest == 1) :
+
+        # Test 1 => 좌표출력           
+            Test1()
+        else: #Run
+
+            # 버튼 눌림 체크       
+            nNum0, nNum1, Event_Dn0, Event_Dn1, Event_Up0, Event_Up1, Btn0, Btn1 = GetButton(btnList)
+            if (Event_Dn1 == 1):
+                smart.etc.vibrate(10)
+            elif (Event_Dn0 == 1):
+                smart.etc.vibrate(10)
+            Get_Rot()
+            #delay(1000)
+
+            #메뉴바가 떠 있는 상태           
+            if (CVar.nPage == _PAGE_MAIN):
+                # 전체모터 토크 On              
+                TorqAll(True)
+                #모든 LED Off             
+                DXL(254).write8(65, 0)   #LED                          
+                Page_Main(nNum0, nNum1, Event_Dn0, Event_Dn1, Event_Up0, Event_Up1, Btn0, Btn1)
