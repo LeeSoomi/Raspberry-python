@@ -29,13 +29,15 @@ while True:
             speed_r=x-center_x  # 중앙과 위치차이값
             speed_r=speed_r*2  # 중앙과 위치차이값에 *2를 해서 속도에 더해주기
             DXL(13).goal_velocity(-speed)
-            DXL(14).goal_velocity(speed+speed_r)
+            #DXL(14).goal_velocity(speed+speed_r)
+            DXL(14).goal_velocity(speed_r)
             diff=x-center_x
             print('[|',diff,']',sep='')
         elif x < center_x :  # 인식위치가 중앙보다 왼쪽
             speed_l=center_x-x
             speed_l=speed_l*2
-            DXL(13).goal_velocity(-speed-speed_l) 
+            DXL(13).goal_velocity(-speed_l)
+          # DXL(13).goal_velocity(-speed-speed_l) 
             DXL(14).goal_velocity(speed)
             diff=center_x-x
             print('[',diff,'|]',sep='')
