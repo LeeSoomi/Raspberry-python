@@ -1,0 +1,53 @@
+						
+	MagicMirror² 설치 과정					
+			https://docs.magicmirror.builders/getting-started/installation.html#manual-installation			
+			Node.js 는 최신버전으로 다운로드하여 설치를 권장하므로 사이트에서 설치			
+						
+		curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -				
+		sudo apt install -y nodejs				
+		git clone https://github.com/MichMich/MagicMirror				
+		cd MagicMirror/				
+		npm install --only=prod --omit=dev				
+		cp config/config.js.sample config/config.js				
+		npm run start				
+			> Magic Mirror 화면이 나오면 정상적인 설치			
+			> crt+Q 			
+						
+						
+	Mic & Speaker 설정					
+			여기에서는 USB마이크와 AUX스피커 사용으로 설정			
+		arecord -l				
+			USB 마이크 HW 확인  > card, device 번호 확인			
+						
+		aplay -l				
+			Speake HW 확인 > card, device 번호 확인 			
+			HDMI 가 아닌 Headphone 선택			
+						
+		nano .asoundrc  실행				
+				아래 형식으로 저장 > 각자의 HW에 맞는 마이크와 스피커 번호입력		
+				pcm.!default {		
+				  type asym		
+				  capture.pcm "mic"		
+				  playback.pcm "speaker"		
+				}		
+				pcm.mic {		
+				  type plug		
+				  slave {		
+				    pcm "hw:1,0"		
+				  }		
+				}		
+				pcm.speaker {		
+				  type plug		
+				  slave {		
+				    pcm "hw:0,0"		
+				  }		
+				}		
+						
+		speaker-test -t wav				
+			스피커 테스트 			
+						
+		arecord --format=S16_LE --duration=5 --rate=16000 --file-type=raw out.raw				
+			녹음 테스트			
+						
+		aplay --format=S16_LE --rate=16000 out.raw				
+			녹음파일 출력 테스트			
