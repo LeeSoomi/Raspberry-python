@@ -1,0 +1,165 @@
+											
+	GoogleAssistant 설치순서										
+			https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4								
+											
+			GoogleAssistant를 실행하는데 필요한 모듈이 거의다 있고 								
+			설명이 쉽게 되어있어 사용이 편리하게 되어있다.								
+		1	Installation								
+		2	Credentials Setup								
+		3	Configuration								
+		4	Extented plugins								
+		5	Before the first start								
+											
+											
+		1	Installation								
+				https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/Installation							
+				설치							
+					cd ~/MagicMirror/modules						
+					git clone https://github.com/bugsounet/MMM-GoogleAssistant						
+					cd MMM-GoogleAssistant						
+					npm install						
+											
+											
+		2	Credentials Setup								
+				https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/SetupCredentials							
+				프로젝트를 생성과정							
+			Actions Console 에서 새 프로젝트 생성								
+				https://console.actions.google.com/							
+				사용할 언어와 국가 지정 >  registration 클릭							
+											
+				대시보드 설정으로 이동 (Actions Console 에서 생성한 프로젝트 선택 필수)							
+				https://console.cloud.google.com/							
+			APIs & Services 								
+				 + API 및 서비스 사용설정에서 Google Assistant 검색 > 사용으로 설정							
+			OAuth Consent Screen								
+				https://console.cloud.google.com/apis/credentials/consent?project							
+			credentials and Create Credentials								
+				https://console.cloud.google.com/apis/credentials?project							
+				OAuth client ID							
+				Download the JSON file  > rename to credentials.json							
+			PUBLISH APP								
+											
+											
+		3	Configuration								
+				프로젝트에서 생성된 credentials.json파일을   MMM-GoogleAssistant 폴더안에 복사해 놓는다							
+				MagicMirror / modules / MMM-GoogleAssistant / credentials.json							
+											
+					https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/Configuration						
+											
+					위 링크에 config.js 의 구성과 기능에 대한 설명이 자세히 기술되어있어 사용자의 필요에 따라 구성이 가능하다						
+					사용자가 설정할수 있는 config파일과 기본제공하는 config sample 이 존재.. 참고						
+											
+				config.js file of MagicMirror							
+											
+					        {						
+					          module: "MMM-GoogleAssistant",						
+					          configDeepMerge: true,						
+					          config: {						
+					            debug: false,						
+					            stopCommand: "stop",						
+					            assistantConfig: {						
+					                  lang: "en-US",						
+					                  latitude: 36.32139,						
+					                  longitude: 127.41972,						
+					                  deviceRegistred: true						
+					                            },						
+					            responseConfig: {						
+					              useFullscreen: false,						
+					              responseOutputCSS: "response_output.css",						
+					              screenOutputTimer: 5000,						
+					              useChime: true,						
+					              confirmationChime: true						
+					                            },						
+					            recipes: []						
+					                    }						
+					        },						
+											
+											
+		4	Extented plugins								
+				https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/ExtentedPlugins							
+				이전까지 GoogleAssistant 에서는 많은 기능들을 포함해서 제공했지만 							
+				이제는 사용자가 사용하고 싶은 모듈만을 추가해 사용하도록 하고있다.							
+				MMM-GoogleAssistant를 사용하고 시작하려면 다음을 3가지 설치해야 합니다.							
+											
+			1)	Gateway							
+					MMM-GoogleAssistantv4에는 플러그인과 통신하기 위한 모듈						
+					https://wiki.bugsounet.fr/en/Gateway						
+											
+					설치						
+						cd ~/MagicMirror/modules					
+						git clone https://github.com/bugsounet/Gateway					
+						cd Gateway					
+						npm install					
+											
+					config.js file of MagicMirror						
+						{					
+						  module: 'Gateway'					
+						},					
+											
+			2)	EXT-Alert							
+					화면에 경고, 정보 또는 오류를 표시하기 위한 플러그인						
+					https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/Configuration						
+					설치						
+						cd ~/MagicMirror/modules					
+						git clone https://github.com/bugsounet/EXT-Alert					
+						cd EXT-Alert					
+						npm install					
+											
+					config.js file of MagicMirror						
+						{					
+						  module: 'EXT-Alert',					
+						  config: {					
+						    debug: false,					
+						    ignore: []					
+						  }					
+						},					
+											
+			3)	EXT-Detector							
+					multi-keyword listener for MMM-GoogleAssistant v4						
+					https://wiki.bugsounet.fr/en/EXT-Detector						
+					설치						
+						cd ~/MagicMirror/modules					
+						git clone https://github.com/bugsounet/EXT-Detector					
+						cd EXT-Detector					
+						npm install					
+											
+					config.js file of MagicMirror						
+						{					
+						  module: "EXT-Detector",					
+						  position: "top_left",					
+						  configDeepMerge: true,					
+						  config: {					
+						    debug: false,					
+						    useIcon: true,					
+						    touchOnly: false,					
+						    detectors: [					
+						      {					
+						        detector: "Snowboy",					
+						        Model: "jarvis",					
+						        Sensitivity: null					
+						      },					
+						      {					
+						        detector: "Porcupine",					
+						        Model: "ok google",					
+						        Sensitivity: null					
+						      },					
+						      {					
+						        detector: "Porcupine",					
+						        Model: "hey google",					
+						        Sensitivity: null					
+						      }					
+						    ]					
+						  }					
+						}					
+											
+											
+											
+											
+		5	Before the first start								
+				https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/Beforethefirststart							
+											
+			token 생성								
+				cd ~/MagicMirror/modules/MMM-GoogleAssistant							
+				npm run token							
+											
+				 > 오류 없으면  Y > 링크에서 code 복사에서 붙여넣으면  끝							
