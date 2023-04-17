@@ -179,8 +179,8 @@ nano config.js
 API 키를 입력하고, 화면에 출력할 유튜브 채널 ID를 입력합니다.
 
 config: {
-    apiKey: "your_API_key_here",
-    channelIds: ["your_channel_ID_here"]
+    apiKey: "AIzaSyCRhfAXvmr4ptFTXY2QuNXk7NubZ5rd_is",
+    channelIds: ["https://www.youtube.com/@sm7596"]
 }
 MagicMirror를 재시작합니다.
 
