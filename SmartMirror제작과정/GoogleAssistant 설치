@@ -9,7 +9,11 @@
 		3	Configuration								
 		4	Extented plugins								
 		5	Before the first start								
-											
+		
+		
+		
+		
+		
 											
 		1	Installation								
 				https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/Installation							
@@ -153,7 +157,38 @@
 						}					
 											
 											
-											
+터미널을 엽니다.
+MagicMirror 모듈 폴더로 이동합니다.
+
+cd ~/MagicMirror/modules
+ 
+ 유튜브 모듈을 clone 합니다.
+
+git clone https://github.com/CFenner/MagicMirror-YouTube.git
+
+모듈 폴더로 이동합니다.
+
+cd MagicMirror-YouTube
+
+모듈의 의존성 패키지를 설치합니다.
+
+npm install
+모듈 설정 파일을 열어 수정합니다.
+
+nano config.js
+API 키를 입력하고, 화면에 출력할 유튜브 채널 ID를 입력합니다.
+
+config: {
+    apiKey: "your_API_key_here",
+    channelIds: ["your_channel_ID_here"]
+}
+MagicMirror를 재시작합니다.
+
+cd ~/MagicMirror
+npm start
+
+
+
 											
 		5	Before the first start								
 				https://wiki.bugsounet.fr/en/MMM-GoogleAssistantv4/Beforethefirststart							
