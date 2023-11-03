@@ -1,0 +1,1 @@
+sudo raspi-config > Interface Options  > Legecy Camera > Yes  > Finish
