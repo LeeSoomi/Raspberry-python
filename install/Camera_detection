@@ -1,0 +1,15 @@
+- face_recognition instal -
+$ pip3 install face_recognition
+
+
+
+- Matplotlib install -
+$ pip3 install matplotlib
+
+
+-  Scikit-lean  -
+$ pip3 install scikit-learn
+
+
+--  YOLO 를 이용한 사물인식  --
+https://github.com/EdjeElectronics/TensorFlow-Lite-Object-Detection-on-Android-and-Raspberry-Pi
