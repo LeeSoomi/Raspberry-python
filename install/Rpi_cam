@@ -1,1 +1,7 @@
 sudo raspi-config > Interface Options  > Legecy Camera > Yes  > Finish
+
+
+[test]
+$ sudo raspistill –o test.jpg
+
+$ sudo raspivid –o video.h264
