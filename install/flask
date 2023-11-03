@@ -1,0 +1,7 @@
+$ sudo pip install –-upgrade pip
+
+$ sudo pip install flask
+
+$ python  
+>>> import Flask
+>>> from flask import Flask 이면 정상설치
