@@ -1,0 +1,18 @@
+1.  ibus 패키지 설치
+$ sudo apt-get install ibus
+
+2. 한글언어팩 설치
+$ sudo apt-get install ibus-hangul
+
+3. 한글폰트 설치
+$ sudo apt-get install fonts-unfonts-core
+
+4. 라이브러리 업데이트를 위한 재부팅
+$ reboot
+
+
+5. Preferences
+ 1) Raspberry Pi configuration > Localisation > Set Keyboard
+    : Layout -> Korean / Variant -> Korean(101/104 key compatible)
+ 2) IBus > Input Method > Add
+    : Korean 선택 후 Hangul 을 추가
