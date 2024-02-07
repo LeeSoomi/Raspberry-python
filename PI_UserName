@@ -1,0 +1,72 @@
+사용자 추가
+https://www.raspberrypi.com/documentation/computers/configuration.html#add-a-user
+
+사용자 삭제
+https://www.raspberrypi.com/documentation/computers/configuration.html#delete-a-user
+
+
+
+
+사용자 비밀번호 변경
+raspi-config명령줄에서 애플리케이션을 통해 현재 사용자 계정의 비밀번호를 변경할 수 있습니다 .
+
+$ sudo raspi-config
+
+옵션 2를 선택하고 지침에 따라 비밀번호를 변경하세요.
+또는 다음 passwd애플리케이션을 사용하세요.
+
+$ passwd
+
+
+사용자 추가
+새 사용자를 추가하려면 다음 명령을 입력하고 <username>자리 표시자를 새 사용자의 사용자 이름으로 바꿉니다.
+
+$ sudo adduser <username>
+
+메시지가 나타나면 새 사용자의 비밀번호를 입력합니다.
+
+에서 새 사용자의 홈 디렉터리를 찾을 수 있습니다 /home/<username>/.
+
+새 사용자에게 필요한 권한(예:)을 부여하려면 sudo다음 명령을 실행하여 연결된 사용자 그룹에 사용자를 추가하고 <username>자리 표시자를 새 사용자의 사용자 이름으로 바꿉니다.
+
+$ sudo usermod -a -G adm,dialout,cdrom,sudo,audio,video,plugdev,games,users,input,netdev,gpio,i2c,spi <username>
+
+권한이 성공적으로 부여되었는지 확인하려면 다음 명령을 실행하고 <username>자리 표시자를 새 사용자의 사용자 이름으로 바꿉니다.
+
+$ sudo su - <username>
+
+위 명령이 성공적으로 실행되면 사용자에 대한 권한이 성공적으로 구성된 것입니다.
+
+
+
+사용자 삭제
+사용자를 삭제하려면 다음 명령을 실행하고 <username>자리 표시자를 삭제하려는 사용자 이름으로 바꿉니다.
+
+$ sudo deluser -remove-home <username>
+이 명령은 사용자와 해당 홈 디렉터리를 삭제합니다. 사용자의 홈 디렉터리를 보존하려면 옵션 없이 명령을 실행하세요 -remove-home.
+
+
+기본 사용자 변경
+부팅 시 Raspberry Pi에 자동으로 로그인하는 사용자를 변경하려면 다음 명령을 실행하세요.
+
+$ sudo raspi-config
+옵션 1, S5를 선택합니다 Boot/Auto login. 그런 다음 재부팅하려면 예라고 대답하세요.
+
+sudo명령 에 비밀번호가 필요합니다
+sudo명령 앞에 배치하면 수퍼유저로 실행됩니다. 기본적으로 비밀번호가 필요하지 않습니다. 그러나 sudo.
+
+sudo비밀번호를 강제로 요구하려면 nopasswd사용자 계정의 sudoers 파일을 편집하여 <username>파일 이름의 자리 표시자를 사용자 이름으로 바꾸세요.
+
+$ sudo visudo /etc/sudoers.d/010_<username>-nopasswd
+<username>항목을 다음으로 변경 하고 <username>사용자 이름으로 바꿉니다.
+
+<username> ALL=(ALL) PASSWD: ALL
+파일을 저장합니다. 새로운 기본 설정은 즉시 적용됩니다.
+
+라즈베리 파이 OS 업데이트
+최신 OS 배포에만 최신 보안 수정 사항이 모두 포함되어 있습니다. 장치를 항상 최신 버전의 Raspberry Pi OS로 업데이트 하세요.
+
+cronSSH를 사용하여 Raspberry Pi에 연결하는 경우 SSH 서버를 특별히 업데이트하는 작업을 추가하는 것이 좋습니다 . 매일 작업으로 실행되는 다음 명령을 사용하면 cron일반적인 업데이트 프로세스와 관계없이 최신 SSH 보안 수정 사항이 즉시 적용됩니다.
+
+
+$ apt install openssh-server
