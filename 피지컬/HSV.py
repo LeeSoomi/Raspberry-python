@@ -28,7 +28,7 @@ while True:
   cv2.imshow('BLUE',blue_img)
   cv2. imshow('GREEN', green_img)
   cv2.imshow('RED', red_ing)
-  if cv2.waitkey(1) == ord('q'):
+  if cv2.waitKey(1) == ord('q'):
     break
   if cv2.waitKey(1) == ord('c'):
     img_captured = cv2.imwrite(' img_captured.png', img)
