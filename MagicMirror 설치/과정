@@ -6,6 +6,8 @@ https://blog.naver.com/cosmosjs/222394379523
 Installation &Usage | MagicMirror² Documentation
 ​
 설치 패키지 버전이 최신으로 바뀌기 때문에 항상 위 링크를 확인하고 최신 상태로 설치하는 것이 좋다. 
+
+https://github.com/nodesource/distributions?tab=readme-ov-file#debian-versions
 ​https://learningit.tistory.com/10 << 여기에서 패키지 설치 관련 설명 참조
 $ curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 $ sudo apt install -y nodejs
