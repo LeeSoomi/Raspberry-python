@@ -20,7 +20,7 @@ $ git clone https://github.com/MagicMirrorOrg/MagicMirror
 ​
 $ cd MagicMirror 
 매직미러 폴더로 이동한다. 
-​
+​sudo apt-get install -y npm
 $ npm run install-mm
 $ cp config/config.js.sample config/config.js
 
