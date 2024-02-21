@@ -20,3 +20,24 @@ pcm.speaker {
 
 
 https://blog.naver.com/pk3152/221391106292
+
+
+
+
+
+https://devskim.tistory.com/61
+
+1. 패키지 설치
+sudo apt-get install sox
+ 
+
+2. 녹음하기
+rec ${FILE_NAME}
+rec sample.wav
+
+3. 음성 재생하기
+play ${FILE_NAME}
+play sample.wav
+
+4. 디바이스 설정
+alsamixer
