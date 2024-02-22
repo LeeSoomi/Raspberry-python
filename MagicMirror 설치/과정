@@ -1,98 +1,106 @@
-https://blog.naver.com/cosmosjs/222394379523
-참고
+2024/02월 기준
 
 1. 매직미러 소프트웨어 설치 
 매직미러는 아래 링크의 가이드를 따라서 설치 하면 된다. 하나씩 따라 해 보기로 하자. 
 Installation &Usage | MagicMirror² Documentation
-​
 설치 패키지 버전이 최신으로 바뀌기 때문에 항상 위 링크를 확인하고 최신 상태로 설치하는 것이 좋다. 
 
-https://github.com/nodesource/distributions?tab=readme-ov-file#debian-versions
-​https://learningit.tistory.com/10 << 여기에서 패키지 설치 관련 설명 참조
-$ curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-$ sudo apt install -y nodejs
-​
+~$  curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+~$  sudo apt install -y nodejs
 
-https://docs.magicmirror.builders/getting-started/installation.html
-여기에서 받는다.
-$ git clone https://github.com/MagicMirrorOrg/MagicMirror
+~$  git clone https://github.com/MichMich/MagicMirror
 매직미러 리포지토리를 통째로 라즈베리파이로 복사 한다.
-​
-$ cd MagicMirror 
+
+~$  cd MagicMirror 
 매직미러 폴더로 이동한다. 
-​sudo apt-get install -y npm
-$ npm run install-mm
-$ cp config/config.js.sample config/config.js
+
+~$  npm install
+~$  cp config/config.js.sample config/config.js
 
 
 config.js 파일을 열어서 language와 local을 한국으로 변경하고 저장한다.
-​
-$ npm run start
+
+~$  npm run start
 매직미러를 실행 시켜 보자. 
 
-
-
-bugsounet/MMM-GoogleAssistant: MMM-GoogleAssistant is an embedded Google assistant on MagicMirror (github.com)
-
+2. 마이크, 스피커 확인
 먼저 오디오 장치들이 제대로 인식 되어 있는지 확인 한다. 
+aplay -l 와 arecord -l 를 이용 장치들이 정상적으로 잡혀 있는지 체크해 본다.  
+
+각각의 card, device 번호 확인
+스피커테스트
+~$  speaker-test -t wav
+
+마이크 사용을 위한 패키지 설치
+~$ sudo apt-get install sox
+
+녹음하기
+~$ rec sample.wav
+
+녹음 재생하기
+~$ play sample.wav
+
+~$ nano .asoundrc  //장치 설정
+     pcm.!default {	
+      type asym	
+      capture.pcm "mic"	
+      playback.pcm "speaker"	
+    }	
+    pcm.mic {	
+      type plug	
+      slave {	
+        pcm "hw:1,0"	
+      }	
+    }	
+    pcm.speaker {	
+      type plug	
+      slave {	
+        pcm "hw:0,0"	
+      }	
+    }	
 
 
+3. GoogleAssistant 설치
+bugsounet/MMM-GoogleAssistant
+https://wiki.bugsounet.fr/en/MMM-GoogleAssistant //참고
 
-aplay -l 와 arecord -l 를 이용 장치들이 정상적으로 잡혀 있는지 체크해 본다. 
-둘다 이상 없다. 마이크를 이용 녹음도 해보고 재생도 해 본다. 
-카드의 번호에 유의 하자.
+3-1. 핫워드 음성인식을 위해서 EXT-Detector 설치
+~$ cd ~/MagicMirror/modules/
+~$ git clone https://github.com/bugsounet/EXT-Detector
+~$ cd  EXT-Detector
+~$ npm install
 
 
-2. 핫워드 음성인식을 위해서 MMM-Detector 설치
+3-2.구글 어시스턴트 모듈 설치 
+~$ cd ~/MagicMirror/modules
+~$ git clone https://github.com/bugsounet/MMM-GoogleAssistant
+~$ cd MMM-GoogleAssistant
+~$ npm install
+설치 과정에 몇가지 질문이 나온다. > yes 
 
-$  cd ~/MagicMirror/modules/
-
-$  git clone https://github.com/bugsounet/MMM-Detector
-
-$  cd MMM-Detector
-
-$  npm install
-
-​
-3.구글 어시스턴트 모듈 설치 
-
-$  cd ~/MagicMirror/modules
-
-$  git clone https://github.com/bugsounet/MMM-GoogleAssistant
-
-$  cd MMM-GoogleAssistant
-
-$ npm install
-
-설치 과정에 몇가지 질문이 나온다.  > yes  
-
-​
-4. 구글 어시스턴트 설정
-
-https://console.actions.google.com/
-https://console.cloud.google.com/
+4. 구글 어시스턴트 Credentials Setup
+https://wiki.bugsounet.fr/MMM-GoogleAssistant/SetupCredentials 참고
+	https://console.actions.google.com/
+	https://console.cloud.google.com/
 동의화면 만들고 나서 반드시 '앱게시'를 해줘야 아래 다음 단계 '인증오류'가 발생하지 않는다.
+프로젝트에서 생성된  .json 파일을 받아  credentials.json로 이름변경 > 
+MMM-GoogleAssistant 폴더안에 복사해 놓는다
+
 
 
 5. 매직미러 실행
 
- ~/MagicMirror/config/config.js파일을 열어서 편집(첨부)
+~/MagicMirror/config/config.js파일을 열어서 편집(첨부)
 MMM-GoogleAssistant
 MMM-Detector
-추가 이후 저장
+모듈 추가 이후 저장
 
 
-구글 어시스턴트 토큰을 생성해 줘야 한다. 
+구글 어시스턴트 토큰 생성
 
-$ cd ~/MagicMirror/modules/MMM-GoogleAssistant
+~$ cd ~/MagicMirror/modules/MMM-GoogleAssistant
 
-$ npm run tokens   > 정상이면 구글 인증 > 토큰 복사 붙여넣기
+~$ npm run tokens > 정상이면 구글 인증 > 토큰 복사 붙여넣기
 오류 없으면 
-$ npm start
+~$ npm start
 
-
-
-MagicMirror github
-https://wiki.bugsounet.fr/en/MMInstaller
-
-https://blog.naver.com/cosmosjs/222570746477
