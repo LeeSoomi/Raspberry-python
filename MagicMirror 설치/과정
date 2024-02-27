@@ -100,7 +100,7 @@ MMM-Detector
 
 ~$ cd ~/MagicMirror/modules/MMM-GoogleAssistant
 
-~$ npm run tokens > 정상이면 구글 인증 > 토큰 복사 붙여넣기
+~$ npm run token > 정상이면 구글 인증 > 토큰 복사 붙여넣기
 오류 없으면 
 ~$ npm start
 
