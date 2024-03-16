@@ -1,0 +1,47 @@
+먼저 스왑 파일 크기 늘리기를 실행해주셔야 합니다.
+sudo nano /etc/dphys-swapfile
+
+CONF_SWAPSIZE=100  ->  CONF_SWAPSIZE=1024
+
+저장하고 나온 다음
+다음 두 명령을 실행하여 스왑 서비스를 다시 시작합니다.
+
+sudo /etc/init.d/dphys-swapfile stop
+sudo /etc/init.d/dphys-swapfile start
+
+
+아래 에서 부팅옵션변경을 변경
+sudo raspi-config에서 
+종료 시 raspi-config 시스템을 재부팅할지 묻는 메시지가 표시됩니다.
+재부팅
+dlib 라이브러리에는 다음 네 가지 전제조건이 필요합니다.
+
+Boost Boost.Python CMake X11 이것들은 모두 다음 명령을 통해 설치할 수 있습니다:
+
+
+sudo apt-get update
+ sudo apt-get install build-essential cmake
+ sudo apt-get install libgtk-3-dev
+ sudo apt-get install libboost-all-dev
+
+
+
+pip3 install numpy
+pip3 install scipy
+pip3 install scikit-image
+pip3 install dlib==19.18.0
+pip3 install face_recognition
+
+
+python3
+Python 3.6.9 (default, Nov  7 2019, 10:44:02) 
+[GCC 8.3.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import dlib
+>>> import  face_recognition
+확인
+이후에 
+sudo nano /etc/dphys-swapfile
+
+CONF_SWAPSIZE=1024 ->  CONF_SWAPSIZE=100
+
