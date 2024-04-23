@@ -27,8 +27,9 @@ sudo apt-get update
 
 
 pip3 install numpy
-pip3 install scipy
-pip3 install scikit-image
+sudo apt-get install python-scipy
+python -m pip install -U pip  //Python이 오래된 경우 pip는 호환되는 최신 버전을 찾습니다.
+python -m pip install -U scikit-image
 pip3 install dlib==19.18.0
 pip3 install face_recognition
 
