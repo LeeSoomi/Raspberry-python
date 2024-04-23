@@ -1,0 +1,8 @@
+사진을 캡처하기 위하여 fswebcam 패키지를 설치한다.
+$ sudo apt-get update
+$ sudo apt-get install fswebcam
+
+
+아래와 같이 fswebcam 명령어를 이용하면 사진을 찍을 수 있다. 현재 폴더에 image2.jpg 라는 파일이 생성된다.
+(간단히 명령어 옵션에 대해 설명하자면, 1280x960의 해상도 -r 1280*960 으로 사진하단에 시간이 찍히지 않게 --no-banner 캡처하여 image2.jpg 경로에 저장하라는 뜻)
+$ fswebcam -r 1280*960 --no-banner image2.jpg
