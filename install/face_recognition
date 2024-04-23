@@ -1,3 +1,12 @@
+기본 파이썬 버전 확인하고 변경하기 face_recognition은 3.7로 사용
+~ $ python --version #버전 확인
+~ $ which python #python 2 위치 확인
+~ $ which python3 #python 3 위치 확인
+~ $ sudo ln -sf [new_python_path][privious_python_path] #python 디폴트 버전 변경.
+예)  ~ $ sudo ln -sf /usr/bin/python3 /usr/bin/python
+~ $ python --version #버전 확인
+
+
 먼저 스왑 파일 크기 늘리기를 실행해주셔야 합니다.
 sudo nano /etc/dphys-swapfile
 
