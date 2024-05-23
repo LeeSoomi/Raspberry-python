@@ -1,0 +1,31 @@
+DHT11 센서를 사용하기 위한 라이브러리인 Adafruit_DHT를 설치합니다.
+sudo pip3 install Adafruit_DHT
+
+
+DHT11의 핀을 라즈베리 파이의 GPIO 핀에 연결합니다. 아래는 일반적인 연결 방식입니다:
+DHT11 VCC -> 라즈베리 파이 5V
+DHT11 GND -> 라즈베리 파이 GND
+DHT11 데이터 핀 -> 라즈베리 파이 GPIO 핀 (예: GPIO4)
+
+
+
+다음은 DHT11 센서에서 데이터를 읽어오는 간단한 파이썬 코드
+
+import Adafruit_DHT
+import time
+
+# DHT11 설정
+
+DHT_SENSOR = Adafruit_DHT.DHT11
+DHT_PIN = 4  # 연결한 GPIO 핀 번호
+
+while True:
+    # 습도와 온도 읽기
+    humidity, temperature = Adafruit_DHT.read(DHT_SENSOR, DHT_PIN)
+
+    if humidity is not None and temperature is not None:
+        print(f"Temp={temperature:.1f}C  Humidity={humidity:.1f}%")
+    else:
+        print("Failed to retrieve data from humidity sensor")
+
+    time.sleep(2)
