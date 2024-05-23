@@ -19,11 +19,32 @@ cd rpicam-apps
 
 
 
+
+카메라 연결 및 사진 찍기
+라즈베리파이에서 카메라를 사용하려면 Preferences/Raspberry Pi Configuration/Interface에서 Camera를 Enable 하는 등 셋팅이 더 필요하다고 언급한다.
+
+공식적으로 Bullseye 버전부터는 카메라를 알아서 detect 해주어 따로 설정이 필요 없다고 하더라.(아래 공식 문서 참고)
+이것은 더이상의 PiCamera Python 라이브러리를 지원하지 않음을 의미한다.
+또한, raspicam역시 지원하지 않게 된다.
+
+하지만 새로운 Bullseye OS는 libcamera 앱이 사전 설치가 되어 enable the camera같은 작업을 할 필요 없이 바로 카메라 모듈을 연결하여 사진을 찍으면 된다고 한다!
+
+공식문서
+bullseye-camera-system
+
+그럼 따로 할 설정도 없으니 사진을 찍어보도록 하자.
+
+나와 같은 환경이라면, 아래의 명령어로 사진을 찍을 수 있다!!
+$ libcamera-jpeg -o cam.jpg
+
+
+
+
 카메라 모듈 펌웨어 업데이트:
 
 라즈베리파이 카메라 모듈의 펌웨어를 최신 버전으로 업데이트해보세요. 가끔 새로운 펌웨어가 문제를 해결할 수 있습니다.
 터미널에서 다음 명령어를 실행하여 펌웨어를 업데이트할 수 있습니다:
-bash
+
 코드 복사
 sudo apt update
 sudo apt upgrade
@@ -31,25 +52,24 @@ sudo rpi-update
 libcamera 사용:
 
 최신 라즈베리파이 OS에서는 기존의 raspistill과 raspivid 대신 libcamera를 사용합니다.
+
 libcamera 설치:
-bash
-코드 복사
 sudo apt install libcamera-apps
+
 카메라 테스트:
-bash
-코드 복사
 libcamera-still -o test.jpg
+
+
 OpenCV 사용:
 
-OpenCV를 사용하여 카메라를 제어할 수 있습니다.
 OpenCV 설치:
-bash
-코드 복사
 sudo apt update
 sudo apt install python3-opencv
 간단한 파이썬 스크립트로 카메라 테스트:
 python
-코드 복사
+
+
+
 import cv2
 
 cap = cv2.VideoCapture(0)
