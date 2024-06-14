@@ -1,0 +1,15 @@
+라즈베리파이에서 UART를 활성화
+~ sudo raspi-config
+
+"Interfacing Options" ->
+"Serial" ->
+"Would you like a login shell to be accessible over serial?"에서 "No"를 선택하고
+"Would you like the serial port hardware to be enabled?"에서 "Yes"를 선택
+시스템을 재부팅
+~ sudo reboot
+
+pyserial 라이브러리를 설치
+~ sudo apt-get update
+~ sudo apt-get install python3-pip
+~ pip3 install pyserial
+
