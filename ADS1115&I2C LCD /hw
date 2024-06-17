@@ -1,0 +1,19 @@
+하드웨어 연결
+소리 센서 연결:
+
+소리 센서의 VCC 핀 -> 라즈베리파이 3.3V 핀
+소리 센서의 GND 핀 -> 라즈베리파이 GND 핀
+소리 센서의 아날로그 출력 핀 -> ADS1115의 A0 핀
+ADS1115와 라즈베리파이 연결:
+
+ADS1115 VCC 핀 -> 라즈베리파이 3.3V 핀
+ADS1115 GND 핀 -> 라즈베리파이 GND 핀
+ADS1115 SDA 핀 -> 라즈베리파이 GPIO 2 (핀 3, SDA)
+ADS1115 SCL 핀 -> 라즈베리파이 GPIO 3 (핀 5, SCL)
+ADS1115 A0 핀 -> 소리 센서의 아날로그 출력 핀
+I2C LCD와 라즈베리파이 연결:
+
+I2C LCD VCC 핀 -> 라즈베리파이 3.3V 핀
+I2C LCD GND 핀 -> 라즈베리파이 GND 핀
+I2C LCD SDA 핀 -> 라즈베리파이 GPIO 2 (핀 3, SDA)
+I2C LCD SCL 핀 -> 라즈베리파이 GPIO 3 (핀 5, SCL)
