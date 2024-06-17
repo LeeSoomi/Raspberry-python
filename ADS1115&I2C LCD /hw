@@ -18,11 +18,7 @@ I2C LCD GND 핀 -> 라즈베리파이 GND 핀
 I2C LCD SDA 핀 -> 라즈베리파이 GPIO 2 (핀 3, SDA)
 I2C LCD SCL 핀 -> 라즈베리파이 GPIO 3 (핀 5, SCL)
 
-sudo apt-get update
-sudo apt-get install -y python3.8 python3.8-venv python3.8-dev
 
-python3.8 -m venv myenv
-source myenv/bin/activate
 
 pip install adafruit-blinka adafruit-circuitpython-ads1x15 adafruit-circuitpython-charlcd
 
