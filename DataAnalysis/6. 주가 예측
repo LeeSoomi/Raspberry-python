@@ -1,0 +1,47 @@
+LSTM 모델을 사용하여 주가를 예측
+
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from keras.models import Sequential
+from keras.layers import Dense, LSTM
+
+# 데이터 로드
+data = pd.read_csv('stock_prices.csv')
+
+# 데이터 전처리: 스케일링
+scaler = MinMaxScaler(feature_range=(0,1))
+data_scaled = scaler.fit_transform(data['close'].values.reshape(-1,1))
+
+# 데이터셋 생성 함수
+def create_dataset(data, time_step=1):
+    X, y = [], []
+    for i in range(len(data)-time_step-1):
+        a = data[i:(i+time_step), 0]
+        X.append(a)
+        y.append(data[i + time_step, 0])
+    return np.array(X), np.array(y)
+
+time_step = 10
+X, y = create_dataset(data_scaled, time_step)
+
+# 데이터셋 분할
+X_train, X_test = X[:int(X.shape[0]*0.8)], X[int(X.shape[0]*0.8):]
+y_train, y_test = y[:int(y.shape[0]*0.8)], y[int(y.shape[0]*0.8):]
+
+# 모델 생성: LSTM 모델 사용
+model = Sequential()
+model.add(LSTM(50, return_sequences=True, input_shape=(time_step, 1)))
+model.add(LSTM(50, return_sequences=False))
+model.add(Dense(1))
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+# 모델 학습
+model.fit(X_train, y_train, epochs=20, batch_size=1, verbose=1)
+
+# 예측
+y_pred = model.predict(X_test)
+y_pred = scaler.inverse_transform(y_pred)
+
+LSTM: LSTM 모델을 사용하여 주가 예측.
+MinMaxScaler: 데이터 스케일링.
