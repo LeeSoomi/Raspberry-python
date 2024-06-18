@@ -1,0 +1,24 @@
+사기 거래를 탐지하기 위해 IsolationForest 모델을 사용
+
+from sklearn.ensemble import IsolationForest
+import pandas as pd
+
+# 데이터 로드
+data = pd.read_csv('transaction_data.csv')
+
+# 피처 선택
+X = data[['amount', 'feature1', 'feature2']]
+
+# 모델 학습: Isolation Forest 사용
+model = IsolationForest(n_estimators=100, contamination=0.01, random_state=42)
+model.fit(X)
+
+# 이상 거래 예측
+data['fraud'] = model.predict(X)
+data['fraud'] = data['fraud'].apply(lambda x: 1 if x == -1 else 0)
+
+print(data['fraud'].value_counts())
+
+
+IsolationForest: Isolation Forest 모델을 사용하여 이상 거래 탐지.
+data['fraud']: 탐지된 사기 거래를 표시.
