@@ -1,0 +1,37 @@
+금융 거래 데이터를 클러스터링하여 고객의 선호도를 분석
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+import pandas as pd
+
+# 데이터 로드
+data = pd.read_csv('transaction_data.csv')
+
+# TF-IDF 벡터화
+vectorizer = TfidfVectorizer(stop_words='english')
+X = vectorizer.fit_transform(data['transaction_description'])
+
+# K-Means 클러스터링
+kmeans = KMeans(n_clusters=7, random_state=42)
+금융 거래 데이터를 클러스터링하여 고객의 선호도를 분석하는 Python 코드입니다.
+
+```python
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+import pandas as pd
+
+# 데이터 로드
+data = pd.read_csv('transaction_data.csv')
+
+# TF-IDF 벡터화
+vectorizer = TfidfVectorizer(stop_words='english')
+X = vectorizer.fit_transform(data['transaction_description'])
+
+# K-Means 클러스터링
+kmeans = KMeans(n_clusters=7, random_state=42)
+data['cluster'] = kmeans.fit_predict(X)
+
+print(data['cluster'].value_counts())
+
+TfidfVectorizer: 텍스트 데이터를 벡터화하여 수치형 데이터로 변환.
+KMeans: K-Means 클러스터링을 사용하여 거래 데이터를 군집화.
