@@ -1,3 +1,35 @@
+수익 예측 데이터는 다양한 피처와 수익을 포함합니다.
+
+데이터 설명
+month: 월
+ad_spend: 광고비
+sales_calls: 판매 전화 수
+revenue: 수익
+데이터 생성 코드
+python
+코드 복사
+import pandas as pd
+
+# 예시 데이터 생성
+revenue_data = {
+    'month': [1, 2, 3, 4, 5],
+    'ad_spend': [1000, 1500, 2000, 2500, 3000],
+    'sales_calls': [50, 60, 70, 80, 90],
+    'revenue': [5000, 7000, 8000, 12000, 15000]
+}
+
+# 데이터프레임 생성
+revenue_df = pd.DataFrame(revenue_data)
+
+# CSV 파일로 저장
+revenue_df.to_csv('revenue_data.csv', index=False)
+
+
+
+
+
+
+
 미래의 수익을 예측하기 위해 GradientBoostingRegressor 모델을 사용
 
 from sklearn.ensemble import GradientBoostingRegressor
