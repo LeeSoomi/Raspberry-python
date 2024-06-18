@@ -1,5 +1,36 @@
 신용 점수를 예측하기 위해 로지스틱 회귀 모델을 사용
 
+데이터 설명
+income: 연 소득
+age: 나이
+loan_amount: 대출 금액
+credit_score: 신용 점수 (0: 낮음, 1: 높음)
+
+
+데이터 생성 코드
+python
+코드 복사
+import pandas as pd
+
+# 예시 데이터 생성
+credit_data = {
+    'income': [45000, 54000, 32000, 78000, 61000],
+    'age': [25, 45, 35, 50, 40],
+    'loan_amount': [15000, 20000, 10000, 30000, 25000],
+    'credit_score': [0, 1, 0, 1, 0]
+}
+
+
+
+
+# 데이터프레임 생성
+credit_df = pd.DataFrame(credit_data)
+
+# CSV 파일로 저장
+credit_df.to_csv('credit_data.csv', index=False)
+
+
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
