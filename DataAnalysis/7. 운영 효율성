@@ -1,3 +1,30 @@
+데이터 설명
+machine_id: 기계 ID
+runtime_hours: 가동 시간
+maintenance_cost: 유지 보수 비용
+output: 생산량
+데이터 생성 코드
+import pandas as pd
+
+# 예시 데이터 생성
+manufacturing_data = {
+    'machine_id': [1, 2, 3, 4, 5],
+    'runtime_hours': [150, 200, 250, 300, 350],
+    'maintenance_cost': [1000, 1500, 1200, 1800, 1600],
+    'output': [10000, 12000, 11000, 14000, 13000]
+}
+
+# 데이터프레임 생성
+manufacturing_df = pd.DataFrame(manufacturing_data)
+
+# CSV 파일로 저장
+manufacturing_df.to_csv('manufacturing_data.csv', index=False)
+
+
+
+
+
+
 K-Means 클러스터링을 사용하여 제조 공정의 운영 효율성을 분석
 
 import matplotlib.pyplot as plt
