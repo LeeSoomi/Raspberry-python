@@ -1,3 +1,30 @@
+데이터 설명
+transaction_id: 거래 ID
+transaction_description: 거래 설명
+amount: 거래 금액
+
+데이터 생성 코드
+import pandas as pd
+
+# 예시 데이터 생성
+transaction_data = {
+    'transaction_id': [1, 2, 3, 4, 5],
+    'transaction_description': ['Payment to A', 'Refund from B', 'Purchase at C', 'Transfer to D', 'Withdrawal from E'],
+    'amount': [200, 150, 300, 400, 250]
+}
+
+# 데이터프레임 생성
+transaction_df = pd.DataFrame(transaction_data)
+
+# CSV 파일로 저장
+transaction_df.to_csv('transaction_data.csv', index=False)
+
+
+
+
+
+
+
 금융 거래 데이터를 클러스터링하여 고객의 선호도를 분석
 
 from sklearn.feature_extraction.text import TfidfVectorizer
