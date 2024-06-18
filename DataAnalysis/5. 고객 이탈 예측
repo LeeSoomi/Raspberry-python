@@ -1,0 +1,27 @@
+고객 이탈을 예측하기 위해 결정 트리 모델을 사용
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import pandas as pd
+
+# 데이터 로드
+data = pd.read_csv('churn_data.csv')
+
+# 피처와 타겟 변수 분리
+X = data.drop('churn', axis=1)
+y = data['churn']
+
+# 데이터 분할
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# 모델 학습: 결정 트리 분류기 사용
+model = DecisionTreeClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+# 예측 및 평가
+y_pred = model.predict(X_test)
+print(classification_report(y_test, y_pred))
+
+
+DecisionTreeClassifier: 결정 트리 모델을 사용하여 고객 이탈 예측.
