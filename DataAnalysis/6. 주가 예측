@@ -1,3 +1,33 @@
+데이터 설명
+date: 날짜
+open: 시가
+high: 최고가
+low: 최저가
+close: 종가
+
+데이터 생성 코드
+import pandas as pd
+
+# 예시 데이터 생성
+stock_data = {
+    'date': ['2023-01-01', '2023-01-02', '2023-01-03', '2023-01-04', '2023-01-05'],
+    'open': [100, 105, 102, 108, 110],
+    'high': [110, 112, 107, 115, 118],
+    'low': [98, 104, 100, 106, 109],
+    'close': [108, 110, 105, 113, 115]
+}
+
+# 데이터프레임 생성
+stock_df = pd.DataFrame(stock_data)
+
+# CSV 파일로 저장
+stock_df.to_csv('stock_prices.csv', index=False)
+
+
+
+
+
+
 LSTM 모델을 사용하여 주가를 예측
 
 import numpy as np
