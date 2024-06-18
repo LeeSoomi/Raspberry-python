@@ -1,3 +1,37 @@
+데이터 설명
+asset_id: 자산 ID
+purchase_price: 구매 가격
+current_value: 현재 가치
+depreciation: 감가상각
+
+
+데이터 생성 코드
+
+import pandas as pd
+
+# 예시 데이터 생성
+asset_data = {
+    'asset_id': [101, 102, 103, 104, 105],
+    'purchase_price': [10000, 15000, 20000, 25000, 30000],
+    'current_value': [8000, 14000, 18000, 23000, 28000],
+    'depreciation': [2000, 1000, 2000, 2000, 2000]
+```python
+    'depreciation': [2000, 1000, 2000, 2000, 2000]
+}
+
+# 데이터프레임 생성
+asset_df = pd.DataFrame(asset_data)
+
+# CSV 파일로 저장
+asset_df.to_csv('asset_data.csv', index=False)
+
+
+
+
+
+
+
+
 자산을 평가하고 관리하기 위해 랜덤 포레스트 회귀 모델을 사용하는 코드
 
 from sklearn.ensemble import RandomForestRegressor
