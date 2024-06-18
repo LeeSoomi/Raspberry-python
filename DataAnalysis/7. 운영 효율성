@@ -1,0 +1,25 @@
+K-Means 클러스터링을 사용하여 제조 공정의 운영 효율성을 분석
+
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+import pandas as pd
+
+# 데이터 로드
+data = pd.read_csv('manufacturing_data.csv')
+
+# 피처 선택
+X = data[['feature1', 'feature2', 'feature3']]
+
+# 클러스터링: K-Means 사용
+kmeans = KMeans(n_clusters=3, random_state=42)
+data['cluster'] = kmeans.fit_predict(X)
+
+# 시각화
+plt.scatter(data['feature1'], data['feature2'], c=data['cluster'], cmap='viridis')
+plt.xlabel('Feature 1')
+plt.ylabel('Feature 2')
+plt.title('Clustering of Manufacturing Data')
+plt.show()
+
+KMeans: K-Means 클러스터링을 사용하여 데이터를 군집화.
+plt.scatter: 클러스터링 결과를 시각화.
