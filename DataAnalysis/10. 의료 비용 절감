@@ -1,3 +1,35 @@
+데이터 설명
+patient_id: 환자 ID
+treatment_cost: 치료 비용
+hospital_stay_length: 입원 기간
+follow_up_visits: 후속 방문 수
+
+
+데이터 생성 코드
+import pandas as pd
+
+# 예시 데이터 생성
+healthcare_data = {
+    'patient_id': [1, 2, 3, 4, 5],
+    'treatment_cost': [5000, 7000, 6000, 8000, 5500],
+    'hospital_stay_length': [5, 7, 6, 8, 5],
+    'follow_up_visits': [2, 3, 2, 4, 3]
+}
+
+# 데이터프레임 생성
+healthcare_df = pd.DataFrame(healthcare_data)
+
+# CSV 파일로 저장
+healthcare_df.to_csv('healthcare_data.csv', index=False)
+
+
+
+
+
+
+
+
+
 의료 데이터를 분석하여 비용을 절감하기 위해 선형 회귀 모델을 사용하는 코드
 
 from sklearn.linear_model import LinearRegression
