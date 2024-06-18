@@ -1,3 +1,31 @@
+데이터 설명
+customer_id: 고객 ID
+tenure: 가입 기간
+monthly_charges: 월간 요금
+churn: 이탈 여부 (0: 유지, 1: 이탈)
+
+데이터 생성 코드
+import pandas as pd
+
+# 예시 데이터 생성
+churn_data = {
+    'customer_id': [101, 102, 103, 104, 105],
+    'tenure': [12, 24, 36, 48, 60],
+    'monthly_charges': [20, 30, 40, 50, 60],
+    'churn': [0, 1, 0, 1, 0]
+}
+
+# 데이터프레임 생성
+churn_df = pd.DataFrame(churn_data)
+
+# CSV 파일로 저장
+churn_df.to_csv('churn_data.csv', index=False)
+
+
+
+
+
+
 고객 이탈을 예측하기 위해 결정 트리 모델을 사용
 
 from sklearn.tree import DecisionTreeClassifier
