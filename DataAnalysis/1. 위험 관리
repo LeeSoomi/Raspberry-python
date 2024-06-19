@@ -1,3 +1,6 @@
+순서 
+
+
 위험 관리를 위해 금융 데이터를 분석하고 잠재적 위험을 예측하는 Python 코드입니다.
 데이터 전처리와 RandomForestClassifier를 사용하여 위험을 예측
 
@@ -69,3 +72,48 @@ data['log_amount']: 금액 데이터를 로그 변환하여 스케일 조정.
 train_test_split: 데이터를 학습용과 테스트용으로 분할.
 RandomForestClassifier: 랜덤 포레스트 모델을 사용하여 위험 예측.
 classification_report: 모델의 예측 성능 평가.
+
+
+
+로그 변환(Log Transformation) 적용:
+
+python
+코드 복사
+data['log_amount'] = data['amount'].apply(lambda x: np.log(x+1))
+목적: 로그 변환은 데이터를 스케일링하는 방법 중 하나로, 큰 값들의 차이를 줄이고 데이터 분포를 정규화하는 데 사용됩니다.
+작업: 여기서는 'amount'라는 금액 데이터를 로그 변환하여 'log_amount'라는 새로운 열을 만듭니다.
+이유: np.log(x+1)은 x 값에 1을 더한 후 로그를 취합니다. 1을 더하는 이유는 로그의 특성상 0 이하의 값에 대해 로그를 취할 수 없기 때문입니다.
+피처(특징)와 타겟 변수 분리:
+
+python
+코드 복사
+X = data[['log_amount', 'feature1', 'feature2']]
+y = data['risk']
+피처: 'log_amount', 'feature1', 'feature2' 이 세 개의 열을 피처로 사용합니다. 피처는 모델이 예측을 위해 사용하는 입력 데이터입니다.
+타겟 변수: 'risk'라는 열을 타겟 변수로 사용합니다. 타겟 변수는 모델이 예측하고자 하는 출력 데이터입니다.
+데이터 분할:
+
+python
+코드 복사
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+목적: 모델을 학습시키기 위해 데이터를 학습용(train)과 테스트용(test)으로 나누는 과정입니다.
+작업: 전체 데이터의 70%는 학습용으로, 30%는 테스트용으로 사용합니다.
+random_state: 실행할 때마다 같은 결과를 얻기 위해 무작위로 데이터를 나누는 시드를 고정합니다.
+모델 학습:
+
+python
+코드 복사
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+모델: 랜덤 포레스트(Random Forest) 분류기를 사용합니다.
+n_estimators: 100개의 결정 트리를 사용하여 학습합니다.
+fit: 학습용 데이터를 사용하여 모델을 학습시킵니다.
+예측 및 평가:
+
+python
+코드 복사
+y_pred = model.predict(X_test)
+print(classification_report(y_test, y_pred))
+예측: 학습된 모델을 사용하여 테스트 데이터에 대해 예측합니다.
+평가: classification_report를 사용하여 모델의 성능을 평가합니다. 여기에는 정확도, 정밀도, 재현율, F1 점수 등의 지표가 포함됩니다.
+이 과정을 통해 모델은 주어진 금융 데이터를 바탕으로 'risk'를 예측할 수 있게 됩니다. 요약하면, 데이터 전처리부터 모델 학습, 예측 및 평가까지의 전체 과정을 보여주는 코드입니다.
