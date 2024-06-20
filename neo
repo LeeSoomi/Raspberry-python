@@ -1,0 +1,37 @@
+sudo apt-get update
+sudo apt-get install python3-pip
+sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel
+
+
+
+import time
+import board
+import neopixel
+
+# NeoPixel 설정
+LED_COUNT = 3  # 사용하려는 LED 개수
+LED_PIN = board.D18  # GPIO 18 (PWM)
+
+# NeoPixel 객체 초기화
+pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
+
+# 색상 정의
+RED = (255, 0, 0)
+YELLOW = (255, 255, 0)
+GREEN = (0, 255, 0)
+
+def light_leds(color, duration):
+    """모든 LED를 특정 색상으로 켜고 일정 시간 동안 유지"""
+    pixels.fill(color)
+    time.sleep(duration)
+
+# 메인 프로그램
+if __name__ == '__main__':
+    try:
+        while True:
+            light_leds(RED, 3)  # 빨강 3초
+            light_leds(YELLOW, 3)  # 노랑 3초
+            light_leds(GREEN, 3)  # 초록 3초
+    except KeyboardInterrupt:
+        pixels.fill((0, 0, 0))  # 종료 시 모든 LED 끄기
+        pixels.show()
