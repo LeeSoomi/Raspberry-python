@@ -35,3 +35,10 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pixels.fill((0, 0, 0))  # 종료 시 모든 LED 끄기
         pixels.show()
+
+
+
+
+mv /home/shy/cos_pro/codepair/neopixel.py /home/shy/cos_pro/codepair/neo_pixel_control.py
+sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel
+
