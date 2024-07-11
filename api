@@ -1,0 +1,39 @@
+import requests
+
+# OpenWeatherMap에서 발급받은 API 키
+API_KEY = '76d7bfb17f88032daf45dd36057e6af1'
+
+# 요청 URL 및 파라미터 설정
+url = 'http://api.openweathermap.org/data/2.5/air_pollution'
+params = {
+    'lat': '36.351',  # 대전의 위도
+    'lon': '127.385',  # 대전의 경도
+    'appid': API_KEY
+}
+
+def get_air_quality_data():
+    # API 요청
+    response = requests.get(url, params=params)
+    
+    # 응답 상태 코드 확인
+    print(f"Response Status Code: {response.status_code}")
+    
+    # 응답 내용 확인
+    if response.status_code == 200:
+        try:
+            data = response.json()
+            # 데이터 출력
+            if 'list' in data:
+                for item in data['list']:
+                    print(f"PM2.5: {item['components']['pm2_5']}, PM10: {item['components']['pm10']}, Time: {item['dt']}")
+            else:
+                print("No data available")
+        except requests.exceptions.JSONDecodeError as e:
+            print("Error decoding JSON response:")
+            print(response.text)
+    else:
+        print("Error with API request:")
+        print(response.text)
+
+# API 데이터 가져오기 (한 번만 실행)
+get_air_quality_data()
