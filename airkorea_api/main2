@@ -1,35 +1,39 @@
 import requests
 
-# 새로 발급받은 API 키
-API_KEY = 'TkQMFutL1j3ZWjYAgIDgbG1XeVMfCXLIdmsj7WsACH5Ot03e7Bg9ovbUFK2P1NUaSVKiGh2sPubkybql6LRLQg%3D%3D'
+# OpenWeatherMap에서 발급받은 API 키
+API_KEY = '76d7bfb17f88032daf45dd36057e6af1'
 
 # 요청 URL 및 파라미터 설정
-url = 'http://apis.data.go.kr/B552584/ArpltnInforInqireSvc/getCtprvnRltmMesureDnsty'
+url = 'http://api.openweathermap.org/data/2.5/air_pollution'
 params = {
-    'serviceKey': API_KEY,
-    'returnType': 'json',
-    'numOfRows': 10,
-    'pageNo': 1,
-    'sidoName': '대전',
-    'ver': '1.3'
+    'lat': '36.351',  # 대전의 위도
+    'lon': '127.385',  # 대전의 경도
+    'appid': API_KEY
 }
 
-# API 요청
-response = requests.get(url, params=params)
+def get_air_quality_data():
+    # API 요청
+    response = requests.get(url, params=params)
 
-# 응답 상태 코드 확인
-print(f"Response Status Code: {response.status_code}")
+    # 응답 상태 코드 확인
+    print(f"Response Status Code: {response.status_code}")
 
-# 응답 내용 확인 및 JSON 변환 시도
-try:
-    data = response.json()
-    # 데이터 출력
-    if data.get("response") and data["response"].get("body") and data["response"]["body"].get("items"):
-        items = data["response"]["body"]["items"]
-        for item in items:
-            print(f"Station: {item['stationName']}, PM10: {item['pm10Value']}, PM2.5: {item['pm25Value']}, Time: {item['dataTime']}")
+    # 응답 내용 확인
+    if response.status_code == 200:
+        try:
+            data = response.json()
+            # 데이터 출력
+            if 'list' in data:
+                for item in data['list']:
+                    print(f"PM2.5: {item['components']['pm2_5']}, PM10: {item['components']['pm10']}, Time: {item['dt']}")
+            else:
+                print("No data available")
+        except requests.exceptions.JSONDecodeError as e:
+            print("Error decoding JSON response:")
+            print(response.text)
     else:
-        print("No data available")
-except requests.exceptions.JSONDecodeError as e:
-    print("Error decoding JSON response:")
-    print(response.text)
+        print("Error with API request:")
+        print(response.text)
+
+# API 데이터 가져오기 (한 번만 실행)
+get_air_quality_data()
