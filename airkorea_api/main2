@@ -1,0 +1,35 @@
+import requests
+
+# 공공데이터 포털에서 발급받은 인코딩된 API 키
+API_KEY = 'qv%2Be2Np8t2e2%2BrKPQ7y6lRg2TfO14Lqn73odzn2ypPPwUBmEZbutEu6ETUs6NNgmxLT%2ByeFoHMpTP22BV%2FTjahQ%3D%3D'  # 발급받은 서비스 키를 입력하세요
+
+# 요청 URL 및 파라미터 설정
+url = 'http://apis.data.go.kr/B552584/ArpltnStatsSvc/getCtprvnMesureLIst'
+params = {
+    'serviceKey': API_KEY,
+    'returnType': 'json',
+    'numOfRows': 10,
+    'pageNo': 1,
+    'sidoName': '대전',
+    'searchCondition': 'DAILY'
+}
+
+# API 요청
+response = requests.get(url, params=params)
+
+# 응답 상태 코드 확인
+print(f"Response Status Code: {response.status_code}")
+
+# 응답 내용 확인 및 JSON 변환 시도
+try:
+    data = response.json()
+    # 데이터 출력
+    if data.get("response") and data["response"].get("body") and data["response"]["body"].get("items"):
+        items = data["response"]["body"]["items"]
+        for item in items:
+            print(f"Station: {item['stationName']}, PM10: {item['pm10Value']}, PM2.5: {item['pm25Value']}, Time: {item['dataTime']}")
+    else:
+        print("No data available")
+except requests.exceptions.JSONDecodeError as e:
+    print("Error decoding JSON response:")
+    print(response.text)
