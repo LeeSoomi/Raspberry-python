@@ -87,5 +87,6 @@ cap.release()
 cv2.destroyAllWindows()
 
 
+
 4. 스크립트 실행
 python3 teachablemachine.py  실행
