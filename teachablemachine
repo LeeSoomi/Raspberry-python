@@ -32,6 +32,7 @@ python3 -c "from PIL import Image; print(Image.__version__)"
 import tensorflow as tf
 import numpy as np
 import cv2
+import json  # json 모듈을 임포트합니다.
 from PIL import Image
 
 # JSON 파일 경로를 수정합니다.
@@ -43,40 +44,55 @@ weights_path = "weights.bin"
 with open(metadata_path, 'r') as f:
     metadata = json.load(f)
 
-model = tf.keras.models.model_from_json(metadata['modelTopology'])
+# 모델 구조 로드
+with open(model_path, 'r') as f:
+    model_json = json.load(f)
+
+model = tf.keras.models.model_from_json(model_json)
 model.load_weights(weights_path)
 
-# 웹캠에서 비디오 캡처
+# 클래스 이름 정의
+class_names = ["Remote", "Mouse"]
+
+# 이미지 전처리 함수
+def preprocess_image(image):
+    image = Image.fromarray(image)
+    image = image.resize((224, 224))  # 모델에 맞게 이미지 크기 조정
+    image = np.array(image) / 255.0  # 스케일링
+    image = np.expand_dims(image, axis=0)  # 배치 차원 추가
+    return image
+
+# 웹캠 초기화
 cap = cv2.VideoCapture(0)
+
+if not cap.isOpened():
+    print("웹캠을 열 수 없습니다.")
+    exit()
 
 while True:
     ret, frame = cap.read()
     if not ret:
+        print("프레임을 읽을 수 없습니다.")
         break
 
-    img = cv2.resize(frame, (224, 224))
-    img = img / 255.0
-    img = np.expand_dims(img, axis=0)
+    # 이미지 전처리
+    image = preprocess_image(frame)
 
-    # 예측
-    predictions = model.predict(img)
-    class_index = np.argmax(predictions[0])
-    confidence = predictions[0][class_index]
+    # 예측 수행
+    predictions = model.predict(image)
+    predicted_class = class_names[np.argmax(predictions)]
 
-    # 클래스 이름
-    classes = ["Remote", "Mouse"]
-    class_name = classes[class_index]
+    # 결과 출력
+    cv2.putText(frame, f'Predicted: {predicted_class}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+    cv2.imshow('Webcam', frame)
 
-    # 화면에 출력
-    cv2.putText(frame, f"{class_name}: {confidence:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    cv2.imshow("Webcam", frame)
-
+    # 'q' 키를 누르면 종료
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+# 웹캠 및 창 닫기
 cap.release()
 cv2.destroyAllWindows()
-
 
 
 4. 스크립트 실행
