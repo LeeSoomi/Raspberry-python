@@ -36,18 +36,18 @@ import json
 from PIL import Image
 
 # 메타데이터 로드
-with open('metadata.json', 'r') as f:
+with open('My_imageModel/metadata.json', 'r') as f:
     metadata = json.load(f)
 
 # 모델 구조 로드
-with open('model.json', 'r') as f:
+with open('My_imageModel/model.json', 'r') as f:
     model_json = f.read()
 
 # 모델 생성
 model = tf.keras.models.model_from_json(model_json)
 
 # 가중치 로드
-model.load_weights('weights.bin')
+model.load_weights('My_imageModel/weights.bin')
 
 # 클래스 이름 정의
 class_names = ["Remote", "Mouse"]
@@ -87,6 +87,11 @@ while True:
     # 'q' 키를 누르면 종료
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
+
+# 웹캠 및 창 닫기
+cap.release()
+cv2.destroyAllWindows()
+
 
 # 웹캠 및 창 닫기
 cap.release()
