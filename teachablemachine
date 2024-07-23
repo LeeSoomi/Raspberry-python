@@ -1,43 +1,32 @@
-1. 파일 전송:
-metadata.json, model.json, weights.bin 파일을 라즈베리파이로 전송
+converted_keras 폴더 다운 두개의 파일이 존재
+keras_model.h5
+labels.txt
 
 
-2. 필요한 라이브러리 설치:
-sudo apt-get update
-sudo apt-get install python3-pip
-pip3 install tensorflow
-pip3 install numpy
-pip3 install opencv-python
-pip3 install pillow
 
--1. Python과 pip 확인
-python3 --version
-pip3 --version
+1. Anaconda 환경 생성 및 활성화
+Anaconda Prompt를 열고 새로운 환경을 생성하고 활성화
 
--2. TensorFlow 확인
-python3 -c "import tensorflow as tf; print(tf.__version__)"
-
--3. NumPy 확인
-python3 -c "import numpy as np; print(np.__version__)"
+conda create -n image_model_env python=3.7
+conda activate image_model_env
 
 
--4. OpenCV 확인
-python3 -c "import cv2; print(cv2.__version__)"
+2. 필요한 패키지 설치
+pip install tensorflow==2.4.1
+pip install opencv-python
+pip install numpy pillow
 
--5. Pillow 확인
-python3 -c "from PIL import Image; print(Image.__version__)"
+3. Python 스크립트 작성
 
-
-3. 코드
 import tensorflow as tf
 import numpy as np
 import cv2
-from keras.models import load_model
+from tensorflow.keras.models import load_model
 from PIL import Image
 
 # 모델 및 레이블 파일 절대 경로 설정
-model_path = '/home/PDY/cos/converted_keras/keras_model.h5'
-labels_path = '/home/PDY/cos/converted_keras/labels.txt'
+model_path = 'C:/Users/sm759/converted_keras/keras_model.h5'
+labels_path = 'C:/Users/sm759/converted_keras/labels.txt'
 
 # 모델 로드
 model = load_model(model_path)
@@ -54,8 +43,9 @@ def preprocess_image(image):
     image = np.expand_dims(image, axis=0)  # 배치 차원 추가
     return image
 
-# 웹캠 초기화
-cap = cv2.VideoCapture(0)
+# 외부 웹캠 인덱스 설정 (기본적으로 1번 웹캠으로 설정)
+camera_index = 1
+cap = cv2.VideoCapture(camera_index)
 
 if not cap.isOpened():
     print("웹캠을 열 수 없습니다.")
@@ -88,25 +78,11 @@ cv2.destroyAllWindows()
 
 
 
+
 4. 스크립트 실행
-python3 teachablemachine.py  실행
-
-
-
-
-sudo apt-get update
-sudo apt-get install -y build-essential cmake libgtk2.0-dev pkg-config libavcodec-dev libavformat-dev libswscale-dev
-sudo apt-get install -y python3-dev python3-pip python3-numpy
-sudo apt-get install -y libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-22-dev
-
-pip install --upgrade pip setuptools
-pip install scikit-build
-
-pip install opencv-python
-
-3. OpenCV 설치
-pip install opencv-python
-
-
+Anaconda 환경이 활성화된 상태에서 teachablemachine.py 스크립트를 실행
+conda activate image_model_env
+cd C:\Users\sm759\converted_keras
+python teachablemachine.py
 
 
