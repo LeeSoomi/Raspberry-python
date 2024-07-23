@@ -10,6 +10,23 @@ pip3 install numpy
 pip3 install opencv-python
 pip3 install pillow
 
+-1. Python과 pip 확인
+python3 --version
+pip3 --version
+
+-2. TensorFlow 확인
+python3 -c "import tensorflow as tf; print(tf.__version__)"
+
+-3. NumPy 확인
+python3 -c "import numpy as np; print(np.__version__)"
+
+
+-4. OpenCV 확인
+python3 -c "import cv2; print(cv2.__version__)"
+
+-5. Pillow 확인
+python3 -c "from PIL import Image; print(Image.__version__)"
+
 
 3. 코드
 import tensorflow as tf
