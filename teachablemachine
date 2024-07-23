@@ -35,9 +35,9 @@ import cv2
 from keras.models import load_model
 from PIL import Image
 
-# 모델 및 레이블 파일 경로
-model_path = 'converted_keras/keras_model.h5'
-labels_path = 'converted_keras/labels.txt'
+# 모델 및 레이블 파일 절대 경로 설정
+model_path = '/home/PDY/cos/converted_keras/keras_model.h5'
+labels_path = '/home/PDY/cos/converted_keras/labels.txt'
 
 # 모델 로드
 model = load_model(model_path)
