@@ -68,16 +68,18 @@ pixels[0] = (255, 0, 0)  # 첫 번째 LED를 빨간색으로 켭니다.
 
 
 
-
 import time
 import board
 import neopixel
 
-# NeoPixel 설정
-LED_COUNT = 3  # 사용하려는 LED 개수
-LED_PIN = board.D18  # GPIO 18 (PWM)
+# 라즈베리 파이 모델 확인
+from adafruit_blinka.agnostic import board_id
+print("Board ID: ", board_id)
 
-# NeoPixel 객체 초기화
+LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
+LED_COUNT = 3  # LED 개수를 설정합니다.
+
+# NeoPixel 객체 생성
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
 # 색상 정의
@@ -85,22 +87,18 @@ RED = (255, 0, 0)
 YELLOW = (255, 255, 0)
 GREEN = (0, 255, 0)
 
-def light_leds(color, duration):
-    """모든 LED를 특정 색상으로 켜고 일정 시간 동안 유지"""
-    pixels.fill(color)
-    time.sleep(duration)
+while True:
+    # 빨간색으로 설정
+    pixels.fill(RED)
+    time.sleep(5)
 
-# 메인 프로그램
-if __name__ == '__main__':
-    try:
-        while True:
-            light_leds(RED, 5)  # 빨강 5초
-            light_leds(YELLOW, 5)  # 노랑 5초
-            light_leds(GREEN, 5)  # 초록 5초
-    except KeyboardInterrupt:
-        pixels.fill((0, 0, 0))  # 종료 시 모든 LED 끄기
-        pixels.show()
+    # 노란색으로 설정
+    pixels.fill(YELLOW)
+    time.sleep(5)
 
+    # 초록색으로 설정
+    pixels.fill(GREEN)
+    time.sleep(5)
 
 
 sudo python3 /home/PDY/cos/cos.py
