@@ -10,6 +10,7 @@ sudo pip3 install --upgrade adafruit-python-shell adafruit-circuitpython-neopixe
 
 import time
 import board
+import digitalio
 import neopixel
 
 # 라즈베리 파이 모델 확인
@@ -30,6 +31,7 @@ pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 def set_color(pixels, color):
     for i in range(len(pixels)):
         pixels[i] = color
+    pixels.show()
 
 # 메인 루프
 try:
@@ -45,3 +47,4 @@ except KeyboardInterrupt:
     # 프로그램이 종료될 때 LED를 끕니다.
     pixels.fill((0, 0, 0))
     pixels.show()
+
