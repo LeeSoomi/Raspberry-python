@@ -12,11 +12,10 @@ import time
 import board
 import digitalio
 import neopixel
+from adafruit_platformdetect import Detector
 
 # 라즈베리 파이 모델 확인
-from adafruit_blinka.agnostic import detector
-
-detector = detector()
+detector = Detector()
 if not detector.board.any_raspberry_pi:
     raise RuntimeError("Not running on a Raspberry Pi!")
 
@@ -47,4 +46,3 @@ except KeyboardInterrupt:
     # 프로그램이 종료될 때 LED를 끕니다.
     pixels.fill((0, 0, 0))
     pixels.show()
-
