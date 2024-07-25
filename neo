@@ -1,11 +1,10 @@
 sudo apt-get update
-sudo apt-get install python3-pip
-sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel
-
-sudo apt-get update
 sudo apt-get upgrade
 sudo pip3 install --upgrade setuptools
-sudo pip3 install --upgrade adafruit-python-shell adafruit-circuitpython-neopixel adafruit-blinka
+sudo pip3 install --upgrade adafruit-blinka
+sudo pip3 install --upgrade adafruit-circuitpython-neopixel
+sudo pip3 install --upgrade adafruit-platformdetect
+
 
 
 import time
