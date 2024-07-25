@@ -8,97 +8,40 @@ sudo pip3 install --upgrade setuptools
 sudo pip3 install --upgrade adafruit-python-shell adafruit-circuitpython-neopixel adafruit-blinka
 
 
-
-블링카(Blinka) 설치 확인:
-블링카는 라즈베리 파이에서 Adafruit의 하드웨어를 사용할 수 있도록 도와주는 라이브러리입니다. 이를 설치하고 최신 버전으로 업데이트합니다:
-sudo pip3 install --upgrade adafruit-blinka
-sudo pip3 install --upgrade adafruit-circuitpython-neopixel
-
-필수 라이브러리 설치:
-네오픽셀(NeoPixel) 라이브러리를 설치하고 최신 버전으로 업데이트합니다:
-sudo pip3 install --upgrade adafruit-circuitpython-neopixel
-
-sudo pip3 install --upgrade RPi.GPIO
-
-
-GPIO 권한 확인:
-일부 GPIO 작업은 루트 권한이 필요할 수 있습니다. 따라서, 스크립트를 루트 권한으로 실행합니다:
-sudo raspi-config
-
-환경 변수 설정:
-스크립트에서 문제가 지속될 경우, 블링카가 라즈베리 파이 플랫폼을 인식하도록 환경 변수를 설정할 수 있습니다. 예를 들어, 다음과 같이 설정합니다:
-export BLINKA_FT232H=1
-
-
-import board
-import neopixel
-import adafruit_platformdetect
-
-detector = adafruit_platformdetect.Detector()
-if not detector.board.RASPBERRY_PI:
-    raise RuntimeError("Not running on a Raspberry Pi!")
-
-LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
-LED_COUNT = 3  # LED 개수를 설정합니다.
-
-pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
-
-pixels[0] = (255, 0, 0)  # 첫 번째 LED를 빨간색으로 켭니다.
-
-sudo python3 /home/PDY/cos/cos.py
-
-
-설정확인
-import board
-import digitalio
-import neopixel
-
-# 라즈베리 파이 모델 확인
-from adafruit_blinka.agnostic import board_id
-print("Board ID: ", board_id)
-
-LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
-LED_COUNT = 3  # LED 개수를 설정합니다.
-
-pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
-
-pixels[0] = (255, 0, 0)  # 첫 번째 LED를 빨간색으로 켭니다.
-
-
-
-
-
 import time
 import board
 import neopixel
 
 # 라즈베리 파이 모델 확인
-from adafruit_blinka.agnostic import board_id
-print("Board ID: ", board_id)
+from adafruit_blinka.agnostic import detector
+
+detector = detector()
+if not detector.board.any_raspberry_pi:
+    raise RuntimeError("Not running on a Raspberry Pi!")
+
+print("Running on a Raspberry Pi")
 
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
 LED_COUNT = 3  # LED 개수를 설정합니다.
 
-# NeoPixel 객체 생성
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
-# 색상 정의
-RED = (255, 0, 0)
-YELLOW = (255, 255, 0)
-GREEN = (0, 255, 0)
+# 색상을 변경하는 함수
+def set_color(pixels, color):
+    for i in range(len(pixels)):
+        pixels[i] = color
 
-while True:
-    # 빨간색으로 설정
-    pixels.fill(RED)
-    time.sleep(5)
+# 메인 루프
+try:
+    while True:
+        set_color(pixels, (255, 0, 0))  # 빨간색
+        time.sleep(5)
+        set_color(pixels, (255, 255, 0))  # 노란색
+        time.sleep(5)
+        set_color(pixels, (0, 255, 0))  # 초록색
+        time.sleep(5)
 
-    # 노란색으로 설정
-    pixels.fill(YELLOW)
-    time.sleep(5)
-
-    # 초록색으로 설정
-    pixels.fill(GREEN)
-    time.sleep(5)
-
-
-sudo python3 /home/PDY/cos/cos.py
+except KeyboardInterrupt:
+    # 프로그램이 종료될 때 LED를 끕니다.
+    pixels.fill((0, 0, 0))
+    pixels.show()
