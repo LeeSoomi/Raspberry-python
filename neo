@@ -26,22 +26,19 @@ LED_COUNT = 3  # LED 개수를 설정합니다.
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
 # 색상을 변경하는 함수
-def set_color(pixels, colors):
+def set_color(pixels, color):
     for i in range(len(pixels)):
-        pixels[i] = colors[i]
+        pixels[i] = color
     pixels.show()
 
 # 메인 루프
 try:
     while True:
-        # 0번째 LED 빨간색, 1번째 LED 노란색, 2번째 LED 초록색
-        set_color(pixels, [(255, 0, 0), (255, 255, 0), (0, 255, 0)])
+        set_color(pixels, (255, 0, 0))  # 빨간색
         time.sleep(5)
-        # 0번째 LED 초록색, 1번째 LED 빨간색, 2번째 LED 노란색
-        set_color(pixels, [(0, 255, 0), (255, 0, 0), (255, 255, 0)])
+        set_color(pixels, (255, 255, 0))  # 노란색
         time.sleep(5)
-        # 0번째 LED 노란색, 1번째 LED 초록색, 2번째 LED 빨간색
-        set_color(pixels, [(255, 255, 0), (0, 255, 0), (255, 0, 0)])
+        set_color(pixels, (0, 255, 0))  # 초록색
         time.sleep(5)
 
 except KeyboardInterrupt:
