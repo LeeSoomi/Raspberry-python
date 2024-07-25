@@ -28,6 +28,23 @@ sudo raspi-config
 export BLINKA_FT232H=1
 
 
+import board
+import neopixel
+
+LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
+LED_COUNT = 3  # LED 개수를 설정합니다.
+
+pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
+
+pixels[0] = (255, 0, 0)  # 첫 번째 LED를 빨간색으로 켜는 예제입니다.
+
+sudo python3 /home/PDY/cos/cos.py
+
+
+
+
+
+
 
 import time
 import board
