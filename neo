@@ -9,7 +9,6 @@ sudo pip3 install --upgrade adafruit-platformdetect
 
 import time
 import board
-import digitalio
 import neopixel
 from adafruit_platformdetect import Detector
 
@@ -25,20 +24,28 @@ LED_COUNT = 3  # LED 개수를 설정합니다.
 
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
-# 색상을 변경하는 함수
-def set_color(pixels, color):
-    for i in range(len(pixels)):
-        pixels[i] = color
-    pixels.show()
-
 # 메인 루프
 try:
     while True:
-        set_color(pixels, (255, 0, 0))  # 빨간색
+        # 0번 LED 빨간색, 1번과 2번 끄기
+        pixels[0] = (255, 0, 0)
+        pixels[1] = (0, 0, 0)
+        pixels[2] = (0, 0, 0)
+        pixels.show()
         time.sleep(5)
-        set_color(pixels, (255, 255, 0))  # 노란색
+        
+        # 1번 LED 노란색, 0번과 2번 끄기
+        pixels[0] = (0, 0, 0)
+        pixels[1] = (255, 255, 0)
+        pixels[2] = (0, 0, 0)
+        pixels.show()
         time.sleep(5)
-        set_color(pixels, (0, 255, 0))  # 초록색
+        
+        # 2번 LED 초록색, 0번과 1번 끄기
+        pixels[0] = (0, 0, 0)
+        pixels[1] = (0, 0, 0)
+        pixels[2] = (0, 255, 0)
+        pixels.show()
         time.sleep(5)
 
 except KeyboardInterrupt:
