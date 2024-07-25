@@ -9,6 +9,24 @@ sudo pip3 install --upgrade adafruit-python-shell adafruit-circuitpython-neopixe
 
 
 
+블링카(Blinka) 설치 확인:
+블링카는 라즈베리 파이에서 Adafruit의 하드웨어를 사용할 수 있도록 도와주는 라이브러리입니다. 이를 설치하고 최신 버전으로 업데이트합니다:
+
+sudo pip3 install --upgrade adafruit-blinka
+
+필수 라이브러리 설치:
+네오픽셀(NeoPixel) 라이브러리를 설치하고 최신 버전으로 업데이트합니다:
+sudo pip3 install --upgrade adafruit-circuitpython-neopixel
+
+
+GPIO 권한 확인:
+일부 GPIO 작업은 루트 권한이 필요할 수 있습니다. 따라서, 스크립트를 루트 권한으로 실행합니다:
+sudo raspi-config
+
+환경 변수 설정:
+스크립트에서 문제가 지속될 경우, 블링카가 라즈베리 파이 플랫폼을 인식하도록 환경 변수를 설정할 수 있습니다. 예를 들어, 다음과 같이 설정합니다:
+export BLINKA_FT232H=1
+
 
 
 import time
@@ -36,16 +54,13 @@ def light_leds(color, duration):
 if __name__ == '__main__':
     try:
         while True:
-            light_leds(RED, 3)  # 빨강 3초
-            light_leds(YELLOW, 3)  # 노랑 3초
-            light_leds(GREEN, 3)  # 초록 3초
+            light_leds(RED, 5)  # 빨강 5초
+            light_leds(YELLOW, 5)  # 노랑 5초
+            light_leds(GREEN, 5)  # 초록 5초
     except KeyboardInterrupt:
         pixels.fill((0, 0, 0))  # 종료 시 모든 LED 끄기
         pixels.show()
 
 
 
-
-mv /home/shy/cos_pro/codepair/neopixel.py /home/shy/cos_pro/codepair/neo_pixel_control.py
-sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel
-
+sudo python3 /home/PDY/cos/cos.py
