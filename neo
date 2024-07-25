@@ -11,12 +11,14 @@ sudo pip3 install --upgrade adafruit-python-shell adafruit-circuitpython-neopixe
 
 블링카(Blinka) 설치 확인:
 블링카는 라즈베리 파이에서 Adafruit의 하드웨어를 사용할 수 있도록 도와주는 라이브러리입니다. 이를 설치하고 최신 버전으로 업데이트합니다:
-
 sudo pip3 install --upgrade adafruit-blinka
+sudo pip3 install --upgrade adafruit-circuitpython-neopixel
 
 필수 라이브러리 설치:
 네오픽셀(NeoPixel) 라이브러리를 설치하고 최신 버전으로 업데이트합니다:
 sudo pip3 install --upgrade adafruit-circuitpython-neopixel
+
+sudo pip3 install --upgrade RPi.GPIO
 
 
 GPIO 권한 확인:
@@ -30,16 +32,37 @@ export BLINKA_FT232H=1
 
 import board
 import neopixel
+import adafruit_platformdetect
+
+detector = adafruit_platformdetect.Detector()
+if not detector.board.RASPBERRY_PI:
+    raise RuntimeError("Not running on a Raspberry Pi!")
 
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
 LED_COUNT = 3  # LED 개수를 설정합니다.
 
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
-pixels[0] = (255, 0, 0)  # 첫 번째 LED를 빨간색으로 켜는 예제입니다.
+pixels[0] = (255, 0, 0)  # 첫 번째 LED를 빨간색으로 켭니다.
 
 sudo python3 /home/PDY/cos/cos.py
 
+
+설정확인
+import board
+import digitalio
+import neopixel
+
+# 라즈베리 파이 모델 확인
+from adafruit_blinka.agnostic import board_id
+print("Board ID: ", board_id)
+
+LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
+LED_COUNT = 3  # LED 개수를 설정합니다.
+
+pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
+
+pixels[0] = (255, 0, 0)  # 첫 번째 LED를 빨간색으로 켭니다.
 
 
 
