@@ -19,3 +19,21 @@ china = kor * 0.00591
 print('미국 : ' + str(america) + '달러')
 print('일본 : ' + str(japan) + '엔')
 print('중국 : ' + str(china) + '위안')
+
+
+
+
+print('[ Calculator Program ]')
+print()
+num1 = float(input('The first number to be calculated:'))
+num2 = float(input('The second number to be calculated:'))
+cal = input('Calculation method(+, -, *, /) :')
+
+if cal == '+':
+    print('Result : ', round(num1 + num2, 2))
+elif cal == '-':
+    print('Result : ', round(num1 - num2, 2))
+elif cal == '*':
+    print('Result : ', round(num1 * num2, 2))
+elif cal == '/':
+    print('Result : ', round(num1 / num2, 2))
