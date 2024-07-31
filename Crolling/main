@@ -1,0 +1,18 @@
+pip install requests beautifulsoup4
+
+
+1. requests 라이브러리
+
+import requests
+
+response = requests.get('https://example.com')
+print(response.text)  # 웹 페이지의 HTML 콘텐츠 출력
+
+
+2. beautifulsoup4 라이브러리
+from bs4 import BeautifulSoup
+
+html_content = '<html><head><title>Example</title></head><body><h1>Heading</h1></body></html>'
+soup = BeautifulSoup(html_content, 'html.parser')
+title = soup.find('title').get_text()
+print(title)  # "Example" 출력
