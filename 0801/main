@@ -1,0 +1,10 @@
+def avg(title1, title2, title3):
+    total = (title1 + title2 + title3) / 3
+    return total
+
+num1 = int(input("국어점수 : "))
+num2 = int(input("수학점수 : "))
+num3 = int(input("과학점수 : "))
+
+score = avg(num1, num2, num3)
+print("입력한 과목의 평균은 : %d" %score
