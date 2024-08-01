@@ -15,7 +15,7 @@ print("입력한 과목의 평균은 : %d" %score)
 def area(x, y):
   num = (x * y * 6)
   return num
-width = float(input('가로 또는 세로의 길이 : '))
+width = float(input('가로 또는 세로의 길이 : '))
 height = width
-cube = area(width, height)
+cube = area(width, height)
 print('입력한 정육면체의 넓이는 %.1f㎠ 입니다.' %cube)
