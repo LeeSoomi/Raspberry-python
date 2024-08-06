@@ -8,45 +8,45 @@ https://velog.io/@kimsehwan96/%EC%9A%B0%EB%B6%84%ED%88%AC%EB%9D%BC%EC%A6%88%EB%B
 라즈베리 파이에 Python 3.7을 설치합니다.
 
 패키지 목록 업데이트:
-sudo apt update
-sudo apt upgrade
+~$ sudo apt update
+~$ sudo apt upgrade
 
 필요한 패키지 설치:
 Python 3.7 빌드에 필요한 패키지를 설치합니다.
-sudo apt install -y build-essential checkinstall
-sudo apt install -y libreadline-gplv2-dev libncursesw5-dev libssl-dev \
-libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev zlib1g-dev \
-openssl libffi-dev
+~$  sudo apt install -y build-essential checkinstall
+~$  sudo apt install -y libreadline-gplv2-dev libncursesw5-dev libssl-dev \
+~$  libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev zlib1g-dev \
+~$ openssl libffi-dev
 
 Python 3.7 소스 다운로드:
 Python 3.7의 소스 코드를 다운로드합니다.
-cd /usr/src
-sudo wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tgz
-sudo tar xzf Python-3.7.0.tgz
+~$  cd /usr/src
+~$ sudo wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tgz
+~$ sudo tar xzf Python-3.7.0.tgz
 
 Python 3.7 빌드 및 설치:
-cd Python-3.7.0
-sudo ./configure --enable-optimizations
-sudo make altinstall
+~$ cd Python-3.7.0
+~$ sudo ./configure --enable-optimizations
+~$ sudo make altinstall
 
 
 2. Python 3.7 기본 설정
 Python 3.7이 설치되었으면 기본 Python 버전을 변경합니다.
 Python 3.7 경로 확인:
-which python3.7
+~$ which python3.7
 
 
 Python 3 기본 버전 변경:
 시스템의 기본 Python 3 버전을 Python 3.7로 변경합니다.
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
+~$ sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
 
 
 우선순위 설정:
 설치된 Python 버전들 중에서 우선순위를 조정하여 Python 3.7을 기본으로 사용하도록 합니다.
-sudo update-alternatives --config python3
+~$ sudo update-alternatives --config python3
 
 
 3. VSCode 설정 변경
 VSCode에서 Python 3.7을 사용하도록 설정합니다.
 VSCode 열기:
-code
+~$ code
