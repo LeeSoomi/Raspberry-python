@@ -1,0 +1,17 @@
+import urllib.request
+from bs4 import BeautifulSoup
+
+news_url = 'https://search.naver.com/search.naver?where=news&sm=tab_jum&query='
+search = input('검색어:')
+
+url = news_url + urllib.parse.quote_plus(search)
+
+html = urllib.request.urlopen(url).read()
+soup = BeautifulSoup(html, 'html.parser')
+title = soup.find_all(class_='news_tit')
+
+for i in title:
+    print(i.attrs['title'])
+    print()
+
+print(title)
