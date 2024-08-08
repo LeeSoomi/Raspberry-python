@@ -1,5 +1,4 @@
-#pip install nltk
-
+# !pip install nltk
 
 import nltk
 from nltk.tokenize import word_tokenize
@@ -21,4 +20,3 @@ filtered_words = [word for word in words if word.lower() not in stop_words]
 
 print("Tokenized Words:", words)
 print("Filtered Words:", filtered_words)
-
