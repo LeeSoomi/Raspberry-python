@@ -6,7 +6,7 @@ Installation &Usage | MagicMirror² Documentation
 설치 패키지 버전이 최신으로 바뀌기 때문에 항상 위 링크를 확인하고 최신 상태로 설치하는 것이 좋다. 
 
 ~$  curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-~$  sudo apt install -y nodejs
+~$  sudo apt-get install -y nodejs
 
 ~$  git clone https://github.com/MichMich/MagicMirror
 매직미러 리포지토리를 통째로 라즈베리파이로 복사 한다.
