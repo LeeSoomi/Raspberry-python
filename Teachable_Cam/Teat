@@ -1,0 +1,56 @@
+1. 티처블머신에서 모델 학습
+Teachable Machine 웹사이트에 접속합니다.
+이미지 프로젝트를 선택하고, 학습시킬 사물(예: 연필)의 이미지를 업로드하여 모델을 학습시킵니다.
+학습이 완료되면 "TensorFlow.js" 포맷으로 모델을 다운로드
+
+2. 라즈베리파이 4에 모델 배포 및 웹캠 설정
+1) 라즈베리파이 환경 설정
+라즈베리파이 OS를 최신 버전으로 업데이트
+~$ sudo apt update && sudo apt upgrade
+
+TensorFlow 및 필요한 라이브러리를 설치
+~$ pip install tensorflow
+~$ pip install opencv-python
+~$ pip install numpy
+
+2) 웹캠 연결 및 테스트
+라즈베리파이에 웹캠을 연결하고, OpenCV를 사용하여 웹캠이 잘 작동하는지 확인합니다:
+import cv2
+cap = cv2.VideoCapture(0)
+while True:
+    ret, frame = cap.read()
+    cv2.imshow('Webcam', frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+cap.release()
+cv2.destroyAllWindows()
+
+3)Teachable Machine 모델 사용
+티처블머신에서 다운로드한 모델을 라즈베리파이로 옮깁니다.
+모델을 로드하고 웹캠에서 실시간으로 이미지를 캡처하여 연필을 인식하도록 설정합니다.
+
+아래는 기본적인 코드 구조
+import tensorflow as tf
+import numpy as np
+import cv2
+# 모델 로드
+model = tf.keras.models.load_model('path_to_your_model')
+
+# 웹캠에서 실시간 이미지 가져오기
+cap = cv2.VideoCapture(0)
+while True:
+    ret, frame = cap.read()
+    resized_frame = cv2.resize(frame, (224, 224))  # 모델의 입력 크기와 맞춰서 조정
+    img_array = np.expand_dims(resized_frame / 255.0, axis=0)  # 이미지 전처리
+    
+    predictions = model.predict(img_array)
+    class_id = np.argmax(predictions[0])  # 예측된 클래스 ID
+    
+    if class_id == 0:  # 예를 들어, class_id가 0일 때 연필로 인식
+        print("연필 인식됨")
+    
+    cv2.imshow('Webcam', frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+cap.release()
+cv2.destroyAllWindows()
