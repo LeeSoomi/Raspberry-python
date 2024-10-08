@@ -5,4 +5,8 @@ https://wiki.debian.org/VisualStudioCode
 https://wiki.debian.org/VisualStudioCode
 ~/Downloads $ sudo dpkg -i 다운로드 된 파일명
 
-https://sumorange.com/visual-studio-code-ubuntu22/#google_vignette
+패키지를 수동으로 다운로드:
+cd /tmp
+wget http://archive.raspberrypi.org/debian/pool/main/c/code/code_1.94.0-1727877189_arm64.deb
+dpkg를 사용해 수동으로 설치:
+sudo dpkg -i code_1.94.0-1727877189_arm64.deb
