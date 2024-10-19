@@ -18,7 +18,13 @@ Installation &Usage | MagicMirror² Documentation
 ~$  cp config/config.js.sample config/config.js
 
 
-config.js 파일을 열어서 language와 local을 한국으로 변경하고 저장한다.
+config.js 파일을 열어서 
+language와 local을 한국으로 변경하고 저장한다.
+latitude: 36.32139,
+longitude: 127.41972,
+한국의 휴일
+https://calendar.google.com/calendar/ical/ko.south_korea%23holiday%40group.v.calendar.google.com/public/basic.ics
+
 
 ~$  npm run start
 매직미러를 실행 시켜 보자. 
