@@ -1,11 +1,11 @@
-2024/02월 기준
+2024/10월 기준
 
 1. 매직미러 소프트웨어 설치 
 매직미러는 아래 링크의 가이드를 따라서 설치 하면 된다. 하나씩 따라 해 보기로 하자. 
 Installation &Usage | MagicMirror² Documentation
 설치 패키지 버전이 최신으로 바뀌기 때문에 항상 위 링크를 확인하고 최신 상태로 설치하는 것이 좋다. 
 
-~$  curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+~$  curl -sL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 ~$  sudo apt-get install -y nodejs
 
 ~$  git clone https://github.com/MichMich/MagicMirror
