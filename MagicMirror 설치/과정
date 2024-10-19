@@ -25,6 +25,18 @@ longitude: 127.41972,
 한국의 휴일
 https://calendar.google.com/calendar/ical/ko.south_korea%23holiday%40group.v.calendar.google.com/public/basic.ics
 
+module: "weather",
+            position: "top_right", // 날씨 모듈 위치 (원하는 위치로 변경 가능)
+            config: {
+                weatherProvider: "openweathermap", // 오픈웨더 사용
+                type: "current", // 현재 날씨 표시
+                apiKey: "YOUR_API_KEY_HERE", // 여기서 YOUR_API_KEY_HERE를 실제 API 키로 대체
+                lat: 36.3504, // 대전의 위도
+                lon: 127.3845, // 대전의 경도
+                location: "Daejeon, South Korea", // 위치 이름
+                units: "metric" // 섭씨 사용
+            }
+
 
 ~$  npm run start
 매직미러를 실행 시켜 보자. 
