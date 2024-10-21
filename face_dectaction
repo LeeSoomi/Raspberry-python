@@ -70,3 +70,79 @@ cv2.destroyAllWindows()
 실시간 성능을 최적화하려면 TFLite 모델을 퀀타이즈(quantize)하거나 OpenCV의 딥러닝 가속 기능을 사용해볼 수 있습니다.
 이렇게 설정하면 라즈베리파이에서 실시간으로 사용자의 표정을 감지하고 감정을 인식할 수 있습니다. 
 프로젝트 진행 중에 문제가 있거나 더 도움이 필요한 부분이 있으면 알려주세요!
+
+
+
+라즈베리파이에서 실시간 성능을 최적화하려면 TFLite 모델을 퀀타이즈(quantize)하거나 OpenCV의 딥러닝 가속 기능을 활용하는 것이 좋습니다. 
+각각의 방법을 자세히 설명해드릴게요.
+
+1. TFLite 모델 퀀타이즈 (Quantization)
+퀀타이제이션은 모델의 크기를 줄이고, 처리 속도를 높이는 방법입니다. 
+32비트 부동소수점 대신 8비트 정수로 연산을 하도록 모델을 변환하는 방식으로, 속도 향상과 메모리 사용량 절감을 기대할 수 있습니다.
+
+퀀타이제이션 적용 방법
+티처블머신에서 내보낼 때 퀀타이즈 옵션 선택하기
+
+티처블머신에서 모델을 내보낼 때 "Edge 모델"을 선택하고, 퀀타이즈된 모델로 내보낼 수 있는 옵션을 활성화하세요.
+이를 통해 이미 퀀타이즈된 모델을 받을 수 있습니다.
+Python 코드로 직접 퀀타이즈하기 이미 훈련된 TensorFlow 모델을 Python 코드로 퀀타이즈할 수 있습니다. 
+다음과 같은 코드로 적용할 수 있습니다.
+
+python
+코드 복사
+import tensorflow as tf
+
+# 기존의 TFLite 모델을 로드
+converter = tf.lite.TFLiteConverter.from_saved_model("saved_model_dir")
+
+# 퀀타이제이션 옵션 설정
+converter.optimizations = [tf.lite.Optimize.DEFAULT]
+
+# 퀀타이즈된 모델 생성
+quantized_tflite_model = converter.convert()
+
+# 모델 저장
+with open("quantized_emotion_model.tflite", "wb") as f:
+    f.write(quantized_tflite_model)
+이 코드를 실행하면 퀀타이즈된 .tflite 모델이 생성됩니다. 퀀타이즈된 모델은 라즈베리파이에서 더 빠르게 실행됩니다.
+
+2. OpenCV 딥러닝 가속 기능 사용
+OpenCV의 cv2.dnn 모듈을 사용하면 OpenCV 내부에서 딥러닝 모델을 가속할 수 있습니다. 이 방법은 GPU나 NPU가 있는 경우 더 큰 성능 향상을 제공합니다.
+
+방법 1: OpenCV dnn 모듈 사용하기
+python
+코드 복사
+import cv2
+
+# TFLite 모델을 OpenCV로 로드
+net = cv2.dnn.readNetFromTensorflowLite("quantized_emotion_model.tflite")
+
+# GPU 사용을 설정하는 경우 (라즈베리파이에서는 OpenVINO를 사용 가능)
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_DEFAULT)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
+
+# 카메라 피드로부터 이미지 읽기 및 예측
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    blob = cv2.dnn.blobFromImage(frame, scalefactor=1.0 / 255, size=(224, 224))
+    net.setInput(blob)
+    output = net.forward()
+
+    # 예측된 감정 출력
+    emotion_index = np.argmax(output[0])
+    emotions = ['기쁨', '슬픔', '화남', '무표정']
+    emotion = emotions[emotion_index]
+
+    cv2.putText(frame, emotion, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    cv2.imshow("Emotion Detection", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
