@@ -1,0 +1,72 @@
+1. 티처블머신에서 모델 학습
+티처블머신 웹사이트에서 감정(기쁨, 슬픔, 화남, 무표정)의 이미지를 수집하여 학습합니다.
+학습이 완료되면 **모델을 내보내기(export)**하여 TensorFlow Lite 형식(.tflite)으로 저장합니다. 
+라즈베리파이에서 효율적으로 사용할 수 있도록 Edge 모델을 선택하는 것이 좋습니다.
+
+2. 라즈베리파이 설정
+라즈베리파이 카메라 모듈을 설치하고 연결하세요. 설정 파일에서 카메라 인터페이스를 활성화해야 합니다.
+Python 3, pip, tensorflow, tensorflow-lite, numpy, opencv-python 등의 라이브러리를 설치합니다.
+
+sudo apt-get update
+sudo apt-get install python3-pip
+pip3 install tensorflow tensorflow-lite numpy opencv-python
+
+3. 모델을 라즈베리파이에 배포
+티처블머신에서 내보낸 .tflite 모델 파일을 라즈베리파이로 전송합니다.
+모델과 함께 사용할 **라벨 파일(labels.txt)**도 함께 전송해야 합니다.
+
+4. 코드 작성
+라즈베리파이에서 카메라 피드를 실시간으로 받아와 이미지를 처리합니다.
+티처블머신 모델을 로드하여 입력 이미지를 예측합니다.
+각 감정(기쁨, 슬픔, 화남, 무표정)에 대한 예측 결과를 출력합니다.
+
+import cv2
+import numpy as np
+import tensorflow as tf
+
+# TFLite 모델 로드
+interpreter = tf.lite.Interpreter(model_path="emotion_model.tflite")
+interpreter.allocate_tensors()
+
+# 입력과 출력 텐서 가져오기
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+# 카메라 피드 열기
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # 이미지 전처리
+    img = cv2.resize(frame, (224, 224))
+    img = img / 255.0
+    img = np.expand_dims(img, axis=0).astype(np.float32)
+
+    # 모델 예측
+    interpreter.set_tensor(input_details[0]['index'], img)
+    interpreter.invoke()
+    output_data = interpreter.get_tensor(output_details[0]['index'])
+    
+    # 가장 높은 확률의 감정 예측
+    emotion_index = np.argmax(output_data)
+    emotions = ['기쁨', '슬픔', '화남', '무표정']
+    emotion = emotions[emotion_index]
+    
+    # 화면에 표시
+    cv2.putText(frame, emotion, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    cv2.imshow("Emotion Detection", frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+
+5. 추가 설정
+라즈베리파이에서 카메라 성능이 떨어질 수 있으므로, 이미지 해상도를 적절히 조정해 주는 것이 좋습니다.
+실시간 성능을 최적화하려면 TFLite 모델을 퀀타이즈(quantize)하거나 OpenCV의 딥러닝 가속 기능을 사용해볼 수 있습니다.
+이렇게 설정하면 라즈베리파이에서 실시간으로 사용자의 표정을 감지하고 감정을 인식할 수 있습니다. 
+프로젝트 진행 중에 문제가 있거나 더 도움이 필요한 부분이 있으면 알려주세요!
