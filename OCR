@@ -43,7 +43,55 @@ Anaconda Prompt에서 Python 파일을 만들어 실행할 수 있습니다.
 
 예를 들어, 아래와 같은 코드를 ocr_test.py라는 이름으로 저장합니다.
 
+import cv2
 import pytesseract
+from gtts import gTTS
+import os
+import pygame
+
+# Tesseract 경로 설정 (윈도우의 경우)
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+# 웹캠으로 실시간 비디오 캡처
+cap = cv2.VideoCapture(0)
+
+# Pygame 초기화 (음성 출력)
+pygame.mixer.init()
+
+while True:
+    ret, frame = cap.read()
+    
+    if not ret:
+        print("웹캠에서 프레임을 읽을 수 없습니다.")
+        break
+
+    # 프레임을 흑백으로 변환
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # OCR로 문자 추출
+    text = pytesseract.image_to_string(gray)
+    
+    if text.strip():  # 추출된 문자가 있을 때만 출력
+        print("인식된 문자:", text)
+        
+        # 문자 음성 변환
+        tts = gTTS(text=text, lang='ko')
+        tts.save("output.mp3")
+
+        # 음성 재생
+        pygame.mixer.music.load("output.mp3")
+        pygame.mixer.music.play()
+
+    # 화면에 웹캠 영상 출력
+    cv2.imshow("Webcam", frame)
+    
+    # 'q' 키를 누르면 종료
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# 리소스 해제
+cap.release()
+cv2.destroyAllWindows()
 
 # Tesseract 경로 설정
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
