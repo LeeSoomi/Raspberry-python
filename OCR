@@ -48,8 +48,9 @@ import pytesseract
 from gtts import gTTS
 import os
 import pygame
+import time
 
-# Tesseract 경로 설정 (윈도우의 경우)
+# Tesseract 경로 설정
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # 웹캠으로 실시간 비디오 캡처
@@ -74,12 +75,15 @@ while True:
     if text.strip():  # 추출된 문자가 있을 때만 출력
         print("인식된 문자:", text)
         
-        # 문자 음성 변환
+        # 고유한 파일 이름 생성 (현재 시간 기반)
+        file_name = f"C:\\temp\\output_{int(time.time())}.mp3"
+        
+        # 문자 음성 변환 및 파일 저장
         tts = gTTS(text=text, lang='ko')
-        tts.save("output.mp3")
+        tts.save(file_name)
 
         # 음성 재생
-        pygame.mixer.music.load("output.mp3")
+        pygame.mixer.music.load(file_name)
         pygame.mixer.music.play()
 
     # 화면에 웹캠 영상 출력
@@ -92,6 +96,7 @@ while True:
 # 리소스 해제
 cap.release()
 cv2.destroyAllWindows()
+
 
 # Tesseract 경로 설정
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
