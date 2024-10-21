@@ -1,0 +1,85 @@
+아나콘다에서 가상환경을 만들고 그 안에서 코드를 작성하는 방법을 단계별로 안내드리겠습니다.
+1. 가상환경 생성
+Anaconda 프롬프트에서 다음 명령어를 입력하여 가상환경을 생성할 수 있습니다. 
+예를 들어, 가상환경 이름을 ocr_env로 설정하고 Python 3.9 버전을 사용하고 싶다면:
+conda create -n ocr_env python=3.9
+
+2. 가상환경 활성화
+가상환경을 생성한 후에는 활성화해야 합니다. 다음 명령어로 생성한 가상환경을 활성화할 수 있습니다:
+conda activate ocr_env  (활성화되면 프롬프트가 (ocr_env)로 바뀝니다.)
+
+3. 필요한 패키지 설치
+가상환경에서 필요한 패키지를 설치할 수 있습니다. 
+예를 들어, 앞서 설명한 OCR 프로젝트를 위한 패키지를 설치하려면 다음과 같이 실행합니다:
+pip install opencv-python pytesseract gtts pygame
+Windows에서 tesseract를 설치하려면 추가로 Tesseract OCR을 설치하고 그 경로를 설정해야 합니다. Windows용 Tesseract를 다운로드하여 설치한 후, 
+Tesseract 실행 파일 경로를 환경 변수에 추가하거나, 코드에서 직접 경로를 지정해야 합니다.
+
+4. Tesseract 설치
+Tesseract OCR은 따로 설치가 필요합니다. 
+Tesseract 공식 사이트에서 설치 파일을 다운로드 후 설치할 수 있습니다.
+설치 후에는, Python 코드에서 다음과 같이 Tesseract 경로를 설정해야 합니다:
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+5. 코드 실행
+이제 아나콘다 환경에서 코드를 실행할 수 있습니다. 
+아나콘다 프롬프트에서 Python을 입력하거나, 
+Jupyter Notebook을 실행하여 코드를 작성할 수 있습니다:
+jupyter notebook
+이 명령어를 사용하면 브라우저에서 Jupyter Notebook이 열리고, 
+거기서 코드를 작성할 수 있습니다.
+Tesseract를 설치한 후, 기본적으로 설치되는 경로는 보통 다음과 같습니다:
+
+
+
+Python 코드를 작성하는 방법에는 여러 가지가 있지만, 
+아나콘다 가상환경을 활용하여 코드를 작성하는 
+대표적인 방법 두 가지를 소개해드리겠습니다.
+
+1. Anaconda Prompt에서 Python 파일 실행하기
+Anaconda Prompt에서 Python 파일을 만들어 실행할 수 있습니다.
+1.)Python 파일 생성: 먼저, 텍스트 편집기를 사용하여 Python 코드를 작성하고 .py 파일로 저장하세요. 
+예를 들어, 메모장이나 Visual Studio Code 같은 편집기를 사용할 수 있습니다.
+
+예를 들어, 아래와 같은 코드를 ocr_test.py라는 이름으로 저장합니다.
+
+import pytesseract
+
+# Tesseract 경로 설정
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+print("Tesseract 경로가 설정되었습니다!")
+
+
+2.) Anaconda Prompt에서 파일 실행: Anaconda Prompt에서 해당 파일이 있는 디렉터리로 이동한 후, 
+아래 명령어로 실행할 수 있습니다.
+python ocr_test.py
+
+
+2. Jupyter Notebook 사용
+Anaconda에서 제공하는 Jupyter Notebook을 사용하면 
+브라우저에서 편리하게 Python 코드를 작성하고 실행할 수 있습니다.
+1)Jupyter Notebook 실행: Anaconda Prompt에서 아래 명령어를 입력하세요.
+
+jupyter notebook
+그러면 웹 브라우저가 열리며, Jupyter Notebook 인터페이스가 나타납니다.
+
+2) 새 노트북 생성: 브라우저에서 원하는 디렉터리로 이동한 후, 
+"New" 버튼을 클릭하고 "Python 3"을 선택하여 새로운 노트북을 만듭니다.
+
+3) 코드 작성: Jupyter Notebook의 셀에 아래와 같이 코드를 작성할 수 있습니다.
+import pytesseract
+
+# Tesseract 경로 설정
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+print("Tesseract 경로가 설정되었습니다!")
+
+4)코드 실행: 셀을 선택한 후, Shift + Enter를 누르면 코드가 실행됩니다.
+
+결론
+간단한 텍스트 편집기를 이용한 .py 파일을 만들어 Anaconda Prompt에서 실행하거나,
+Jupyter Notebook에서 웹 브라우저를 통해 코드를 작성하고 실행할 수 있습니다.
+원하시는 방법을 선택하여 코드를 작성하시면 됩니다!
+
+
