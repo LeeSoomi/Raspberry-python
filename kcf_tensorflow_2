@@ -12,6 +12,7 @@ sudo apt-get install chromium-browser chromium-chromedriver
 설치된 Chromedriver의 위치는 일반적으로 /usr/lib/chromium-browser/chromedriver에 위치합니다. 
 이 경로를 사용하여 Selenium에서 직접 Chromedriver를 지정할 수 있습니다.
 
+sudo pip3 install adafruit-blinka
 
 설치 후에는 크롬 옵션을 설정해서 무거운 기능을 비활성화하고, 라즈베리파이에서도 원활히 동작할 수 있도록 합니다.
 라즈베리파이의 특성과 성능을 고려하여 몇 가지 부분을 수정하였습니다:
@@ -34,7 +35,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriv이
-sudo python3 /home/pi/cos/converted_keras/kcf.py
+
 
 
 # 네오픽셀 설정
@@ -127,7 +128,7 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 
-
+sudo python3 /home/pi/cos/converted_keras/kcf.py
 
 수정 사항 요약
 라즈베리파이용 경로 설정: 모델과 레이블 파일의 경로를 라즈베리파이에 맞게 수정했습니다.
