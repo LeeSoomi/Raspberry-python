@@ -163,13 +163,16 @@ sudo rm -rf /root/.wdm/drivers/chromedriver/
 chromedriver의 ARM 버전을 수동으로 설치해야 합니다. 
 아래 명령어로 라즈베리파이에 맞는 chromedriver를 다운로드하고 설정해 주세요
 wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux_arm64.zip
+
 unzip chromedriver_linux_arm64.zip
 sudo mv chromedriver /usr/local/bin/
 sudo chmod +x /usr/local/bin/chromedriver
 
+
 webdriver_manager 대신 수동 설치한 chromedriver 경로를 직접 지정해서 사용하도록 코드 일부를 수정합니다.
 webdriver 설정 부분을 다음과 같이 수정하세요:
 
+chromedriver --version
 
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service 
