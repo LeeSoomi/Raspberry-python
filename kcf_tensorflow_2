@@ -47,6 +47,9 @@ chrome_options.add_argument("--headless")  # 화면이 없는 모드로 실행 (
 chromedriver_path = "/usr/lib/chromium-browser/chromedriver"
 driver = webdriver.Chrome(service=Service(chromedriver_path), options=chrome_options)
 
+sudo python3 /home/pi/cos/converted_keras/kcf.py
+
+
 # 네오픽셀 설정
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
 LED_COUNT = 3  # LED 개수를 설정합니다.
