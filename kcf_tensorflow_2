@@ -155,3 +155,38 @@ chromedriver: chromedriver가 webdriver-manager로 잘 관리되겠지만,
 라즈베리파이에서 실행 중 문제가 발생할 경우 직접 크롬 드라이버를 다운로드하여 경로를 지정해줄 수 있습니다.
 권장 사항: 라즈베리파이에서 성능 문제가 발생할 경우, 
 TensorFlow Lite 모델로 변환하여 사용하는 것을 추천합니다.
+
+
+다음 명령어를 사용하여 이전에 설치된 chromedriver 파일을 삭제하세요.
+sudo rm -rf /root/.wdm/drivers/chromedriver/
+
+chromedriver의 ARM 버전을 수동으로 설치해야 합니다. 
+아래 명령어로 라즈베리파이에 맞는 chromedriver를 다운로드하고 설정해 주세요
+wget https://chromedriver.storage.googleapis.com/114.0.5735.90/chromedriver_linux_arm64.zip
+unzip chromedriver_linux_arm64.zip
+sudo mv chromedriver /usr/local/bin/
+sudo chmod +x /usr/local/bin/chromedriver
+
+webdriver_manager 대신 수동 설치한 chromedriver 경로를 직접 지정해서 사용하도록 코드 일부를 수정합니다.
+webdriver 설정 부분을 다음과 같이 수정하세요:
+
+
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service 
+from selenium.webdriver.chrome.options import Options
+
+# 크롬 옵션 설정
+chrome_options = Options()
+chrome_options.add_argument("--disable-gpu")
+chrome_options.add_argument("--no-sandbox")
+chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--headless")  # 필요 시 제거 가능
+
+# 수동 설치한 chromedriver 경로 설정
+service = Service("/usr/local/bin/chromedriver")
+driver = webdriver.Chrome(service=service, options=chrome_options)
+
+
+
+sudo apt-get update
+sudo apt-get install chromium-browser
