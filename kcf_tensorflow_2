@@ -36,9 +36,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service 
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriv이
-
-
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 # 네오픽셀 설정
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
@@ -59,14 +58,16 @@ with open(labels_path, 'r') as f:
 # 이미지 전처리 함수
 def preprocess_image(image):
     image = Image.fromarray(image)
-    image = image.resize((224, 224))  # 모델에 맞게 이미지 크기 조정
+    image = image.resize((224, 224))  # 모델의 입력 크기에 맞게 이미지 크기 조정
     image = np.array(image) / 255.0  # 스케일링
     image = np.expand_dims(image, axis=0)  # 배치 차원 추가
     return image
 
-# 웹캠 초기화
+# 웹캠 초기화 및 해상도 설정
 camera_index = 0
 cap = cv2.VideoCapture(camera_index)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  # 카메라 해상도 조정 (예: 320x240)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
 if not cap.isOpened():
     print("웹캠을 열 수 없습니다.")
@@ -129,6 +130,7 @@ while True:
 # 웹캠 및 창 닫기
 cap.release()
 cv2.destroyAllWindows()
+
 
 sudo python3 /home/pi/cos/converted_keras/kcf.py
 
