@@ -8,9 +8,9 @@ from PIL import Image
 import board
 import neopixel
 
-# Firefox 브라우저를 명시적으로 설정
+# Firefox 브라우저 설정 (한 번만 설정)
 firefox_path = "/usr/bin/firefox %s"
-webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
+browser = webbrowser.get(firefox_path)
 
 # 네오픽셀 설정
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
@@ -46,6 +46,9 @@ if not cap.isOpened():
     print("웹캠을 열 수 없습니다.")
     exit()
 
+# 이전에 실행된 URL 방지 변수
+last_opened_emotion = None
+
 while True:
     ret, frame = cap.read()
     if not ret:
@@ -65,23 +68,27 @@ while True:
 
     # 예측된 표정에 따른 동작
     try:
-        if predicted_class == 'joy':
-            pixels.fill((0, 255, 0))  # 초록색
-            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
-        elif predicted_class == 'sad':
-            pixels.fill((0, 0, 255))  # 파란색
-            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=위로해주는+노래")
-        elif predicted_class == 'angry':
-            pixels.fill((255, 0, 0))  # 빨간색
-            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
-        elif predicted_class == 'emotionless':
-            pixels.fill((255, 255, 0))  # 노란색
-            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=신나게+해주는+노래")
+        if predicted_class != last_opened_emotion:
+            if predicted_class == 'joy':
+                pixels.fill((0, 255, 0))  # 초록색
+                browser.open_new_tab("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
+            elif predicted_class == 'sad':
+                pixels.fill((0, 0, 255))  # 파란색
+                browser.open_new_tab("https://www.youtube.com/results?search_query=위로해주는+노래")
+            elif predicted_class == 'angry':
+                pixels.fill((255, 0, 0))  # 빨간색
+                browser.open_new_tab("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
+            elif predicted_class == 'emotionless':
+                pixels.fill((255, 255, 0))  # 노란색
+                browser.open_new_tab("https://www.youtube.com/results?search_query=신나게+해주는+노래")
 
-        pixels.show()
-        time.sleep(1)
-        pixels.fill((0, 0, 0))  # LED 끄기
-        pixels.show()
+            pixels.show()
+            time.sleep(1)
+            pixels.fill((0, 0, 0))  # LED 끄기
+            pixels.show()
+
+            # 마지막 실행된 감정 업데이트
+            last_opened_emotion = predicted_class
 
     except Exception as e:
         print(f"Error opening URL: {e}")
