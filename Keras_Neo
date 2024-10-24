@@ -1,0 +1,73 @@
+필요한 모듈 설치
+sudo pip3 install tensorflow opencv-python rpi_ws281x adafruit-circuitpython-neopixel
+
+코드 예제
+
+import cv2
+import numpy as np
+import tensorflow as tf
+import board
+import neopixel
+import time
+
+# 설정 부분
+MODEL_PATH = "/home/pi/cos/converted_keras/keras_model.h5"
+LABELS_PATH = "/home/pi/cos/converted_keras/labels.txt"
+LED_PIN = board.D18          # GPIO 18번 핀에 연결
+NUM_PIXELS = 3               # 네오픽셀 개수
+ORDER = neopixel.GRB         # 네오픽셀 색상 순서
+
+# 네오픽셀 객체 생성
+pixels = neopixel.NeoPixel(LED_PIN, NUM_PIXELS, brightness=0.5, auto_write=False, pixel_order=ORDER)
+
+# Keras 모델과 라벨 불러오기
+model = tf.keras.models.load_model(MODEL_PATH)
+
+# 라벨 불러오기
+with open(LABELS_PATH, "r") as f:
+    labels = [line.strip() for line in f]
+
+# 색상 설정 (표정에 따라 색상 매핑)
+colors = {
+    "joy": (0, 255, 0),          # 기쁨: 초록색
+    "sad": (0, 0, 255),          # 슬픔: 파란색
+    "angry": (255, 0, 0),        # 화남: 빨간색
+    "Expressionless": (255, 255, 0)  # 무표정: 노란색
+}
+
+def set_color(color):
+    pixels.fill(color)
+    pixels.show()
+
+# 웹캠 초기화
+cap = cv2.VideoCapture(0)
+
+try:
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        
+        # 이미지 전처리
+        resized_frame = cv2.resize(frame, (224, 224))
+        normalized_frame = np.expand_dims(resized_frame / 255.0, axis=0)
+        
+        # 예측
+        predictions = model.predict(normalized_frame)
+        label_index = np.argmax(predictions)
+        label = labels[label_index]
+        
+        # 인식된 표정에 따라 LED 색상 변경
+        if label in colors:
+            set_color(colors[label])
+        
+        # 현재 인식된 표정 출력
+        print(f"Detected expression: {label}")
+        
+        time.sleep(1)  # 1초 대기
+
+except KeyboardInterrupt:
+    pixels.fill((0, 0, 0))  # 프로그램 종료 시 모든 LED 끄기
+    pixels.show()
+    cap.release()
+    cv2.destroyAllWindows()
