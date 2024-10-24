@@ -7,7 +7,6 @@ sudo update-alternatives --config x-www-browser
 
 
 chromium-browser를 하드웨어 가속 없이 실행하도록 설정
-
 import webbrowser
 import time
 import os
@@ -45,6 +44,9 @@ def preprocess_image(image):
     image = np.array(image) / 255.0  # 스케일링
     image = np.expand_dims(image, axis=0)  # 배치 차원 추가
     return image
+
+# Chromium 브라우저 경로 설정
+chrome_path = "/usr/bin/chromium-browser %s"
 
 # 웹캠 초기화
 camera_index = 0
@@ -103,4 +105,3 @@ while True:
 # 웹캠 및 창 닫기
 cap.release()
 cv2.destroyAllWindows()
-
