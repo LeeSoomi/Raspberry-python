@@ -18,7 +18,7 @@ Chrome 대신 Firefox를 사용하려면 아래와 같이 코드를 약간 수�
 
 import tensorflow as tf
 import time
-import numpy as np   
+import numpy as np
 import cv2
 from tensorflow.keras.models import load_model
 from PIL import Image
@@ -27,107 +27,121 @@ import neopixel
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# 네오픽셀 설정
-LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
-LED_COUNT = 3  # LED 개수를 설정합니다.
+# 네오픽셀 설정 (LED 핀 및 개수)
+LED_PIN = board.D18  # 라즈베리파이의 GPIO 핀 설정
+LED_COUNT = 3  # 연결된 LED 개수
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
-# 모델 및 레이블 파일 절대 경로 설정
-model_path = '/home/pi/converted_keras/keras_model.h5'  # 라즈베리파이에 맞게 경로 수정
+# 모델 및 레이블 파일 경로 설정
+model_path = '/home/pi/converted_keras/keras_model.h5'
 labels_path = '/home/pi/converted_keras/label.txt'
 
-# 모델 로드
+# Keras 모델 로드
 model = load_model(model_path)
 
 # 클래스 이름 로드
 with open(labels_path, 'r') as f:
     class_names = [line.strip() for line in f.readlines()]
 
-# 이미지 전처리 함수
+# 이미지 전처리 함수 (모델의 입력 형식에 맞춰 이미지 조정)
 def preprocess_image(image):
     image = Image.fromarray(image)
-    image = image.resize((224, 224))  # 모델의 입력 크기에 맞게 이미지 크기 조정
-    image = np.array(image) / 255.0  # 스케일링
+    image = image.resize((224, 224))  # 모델이 기대하는 입력 크기
+    image = np.array(image) / 255.0  # 0~1 사이로 스케일링
     image = np.expand_dims(image, axis=0)  # 배치 차원 추가
     return image
-
-# Firefox 드라이버 설정
-options = Options()
-options.add_argument("--headless")  # 브라우저를 백그라운드에서 실행
-options.add_argument("--no-sandbox")
-
-# Geckodriver 경로 설정
-service = Service("/usr/local/bin/geckodriver")
-driver = webdriver.Firefox(service=service, options=options)
 
 # 웹캠 초기화 및 해상도 설정
 camera_index = 0
 cap = cv2.VideoCapture(camera_index)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  # 카메라 해상도 조정 (예: 320x240)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  # 카메라 해상도 320x240 설정
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
 if not cap.isOpened():
     print("웹캠을 열 수 없습니다.")
     exit()
 
+# Firefox 웹드라이버 서비스 초기화 (geckodriver 경로 명시)
+service = Service('/usr/local/bin/geckodriver')
+
+# 메인 루프: 웹캠 프레임을 읽고 표정을 인식하여 대응하는 동작 수행
 while True:
     ret, frame = cap.read()
     if not ret:
         print("프레임을 읽을 수 없습니다.")
         break
 
-    # 이미지 전처리
+    # 이미지 전처리 및 예측 수행
     image = preprocess_image(frame)
-
-    # 예측 수행
     predictions = model.predict(image)
     predicted_class = class_names[np.argmax(predictions)]
 
-    # 결과 출력
+    # 화면에 예측 결과 출력
     cv2.putText(frame, f'Predicted: {predicted_class}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
     cv2.imshow('Webcam', frame)
 
-    # 예측된 표정에 따른 동작
+    # 예측된 표정에 따라 네오픽셀 색상 및 동작 설정
     if predicted_class == 'joy':
         pixels.fill((0, 255, 0))  # 초록색
-        driver.get("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
+        url = "https://www.youtube.com/results?search_query=행복하게+해주는+노래"
     elif predicted_class == 'sad':
         pixels.fill((0, 0, 255))  # 파란색
-        driver.get("https://www.youtube.com/results?search_query=위로해주는+노래")
+        url = "https://www.youtube.com/results?search_query=위로해주는+노래"
     elif predicted_class == 'angry':
         pixels.fill((255, 0, 0))  # 빨간색
-        driver.get("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
+        url = "https://www.youtube.com/results?search_query=화났을때+듣는+노래"
     elif predicted_class == 'emotionless':
         pixels.fill((255, 255, 0))  # 노란색
-        driver.get("https://www.youtube.com/results?search_query=신나게+해주는+노래")
+        url = "https://www.youtube.com/results?search_query=신나게+해주는+노래"
 
+    # 네오픽셀 업데이트 및 초기화
     pixels.show()
     time.sleep(1)
     pixels.fill((0, 0, 0))  # LED 끄기
     pixels.show()
 
-    # 유튜브 영상 재생 처리
+    # Firefox를 사용해 유튜브 검색 결과 페이지 열기
     try:
+        driver = webdriver.Firefox(service=service)
+        driver.get(url)
+
+        # 유튜브 영상 클릭 (결과 로드 및 재생)
         video = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, '//*[@id="video-title"]'))
         )
         video.click()
 
-        # 비디오 페이지가 로드될 때까지 대기
-        time.sleep(60)  # 페이지가 로드되고 비디오가 재생될 시간을 줌
+        # 비디오 재생 중 대기
+        time.sleep(60)
         driver.quit()
         print("Browser closed.")
     except Exception as e:
         print(f"Error playing video: {e}")
 
-    # 'q' 키를 누르면 종료
+    # 'q' 키를 누르면 루프 종료
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 # 웹캠 및 창 닫기
 cap.release()
 cv2.destroyAllWindows()
+
+
+
+코드 설명
+모듈 초기화:
+필요한 모듈들을 import하고, neopixel, selenium 및 tensorflow를 설정합니다.
+웹캠 해상도 조정:
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320) 및 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)를 사용하여 해상도를 낮춰 성능을 향상시킵니다.
+표정 인식 및 네오픽셀 반응:
+카메라로 실시간 표정을 인식하고, 네오픽셀을 특정 색상으로 변경합니다.
+Firefox WebDriver 사용:
+예측 결과에 따라 Firefox를 실행해 유튜브에서 해당 키워드로 검색을 수행합니다.
+webdriver.Firefox(service=service)를 통해 명시적으로 geckodriver 경로를 설정합니다.
+추가 조언
+geckodriver 로그 확인: 문제가 발생하면 /tmp/geckodriver.log에 로그를 저장하도록 설정해, 오류 원인을 파악할 수 있습니다.
+geckodriver와 Firefox의 호환성 체크: 항상 최신 버전으로 업데이트하세요.
+이제 수정된 코드를 사용해 시도해보고, 실행 중 문제나 오류가 있으면 다시 알려주세요!
