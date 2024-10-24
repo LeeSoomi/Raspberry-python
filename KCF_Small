@@ -1,3 +1,11 @@
+omxplayer /path/to/your/file.mp3
+sudo apt update
+sudo apt install mpg123
+mpg123 /path/to/your/file.mp3
+pip install pygame
+
+
+
 import tensorflow.keras
 import numpy as np
 import cv2
