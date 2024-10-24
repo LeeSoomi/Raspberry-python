@@ -130,17 +130,8 @@ cap.release()
 cv2.destroyAllWindows()
 
 
-코드 설명
-모듈 초기화:
-필요한 모듈들을 import하고, neopixel, selenium 및 tensorflow를 설정합니다.
-웹캠 해상도 조정:
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320) 및 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)를 사용하여 해상도를 낮춰 성능을 향상시킵니다.
-표정 인식 및 네오픽셀 반응:
-카메라로 실시간 표정을 인식하고, 네오픽셀을 특정 색상으로 변경합니다.
-Firefox WebDriver 사용:
-예측 결과에 따라 Firefox를 실행해 유튜브에서 해당 키워드로 검색을 수행합니다.
-webdriver.Firefox(service=service)를 통해 명시적으로 geckodriver 경로를 설정합니다.
-추가 조언
-geckodriver 로그 확인: 문제가 발생하면 /tmp/geckodriver.log에 로그를 저장하도록 설정해, 오류 원인을 파악할 수 있습니다.
-geckodriver와 Firefox의 호환성 체크: 항상 최신 버전으로 업데이트하세요.
-이제 수정된 코드를 사용해 시도해보고, 실행 중 문제나 오류가 있으면 다시 알려주세요!
+
+https://calvinsthoughtbubble.tistory.com/56
+
+
+
