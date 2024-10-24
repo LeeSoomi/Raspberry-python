@@ -1,0 +1,65 @@
+import tensorflow.keras
+import numpy as np
+import cv2
+import pygame
+import time
+
+# TensorFlow 모델 로드
+model = tensorflow.keras.models.load_model('keras_model.h5')
+
+# OpenCV로 웹캠 캡처 시작
+cap = cv2.VideoCapture(0)
+size = (224, 224)
+classes = ['happy', 'expressionless', 'surprised']
+
+# Pygame 초기화 및 음악 파일 로드
+pygame.mixer.init()
+music_files = {
+    'happy': 'happy.mp3',
+    'expressionless': 'expressionless.mp3',
+    'surprised': 'surprised.mp3'
+}
+
+def play_music(emotion):
+    pygame.mixer.music.load(music_files[emotion])
+    pygame.mixer.music.play()
+    time.sleep(60)  # 1분 재생
+    pygame.mixer.music.stop()
+
+# 웹캠에서 이미지 인식 및 음악 재생 루프
+while cap.isOpened():
+    ret, img = cap.read()
+    if not ret:
+        break
+
+    h, w, _ = img.shape
+    cx = h / 2
+    img = img[:, 100:100 + img.shape[0]]
+    img = cv2.flip(img, 1)
+
+    # 이미지 전처리
+    img_input = cv2.resize(img, size)
+    img_input = cv2.cvtColor(img_input, cv2.COLOR_BGR2RGB)
+    img_input = (img_input.astype(np.float32) / 127.0) - 1
+    img_input = np.expand_dims(img_input, axis=0)
+
+    # 모델 예측
+    prediction = model.predict(img_input)
+    idx = np.argmax(prediction)
+    detected_emotion = classes[idx]
+
+    # 결과 표시
+    smaller_img = cv2.resize(img, (800, 600))
+    cv2.putText(smaller_img, text=detected_emotion, org=(10, 30), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=0.8, color=(255, 255, 255), thickness=2)
+    cv2.imshow('result', smaller_img)
+
+    # 인식된 표정에 따라 음악 재생
+    play_music(detected_emotion)
+
+    # 'q' 키를 누르면 종료
+    if cv2.waitKey(1) == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
