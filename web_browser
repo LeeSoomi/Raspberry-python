@@ -1,4 +1,15 @@
+
+update-alternatives를 사용하여 기본 웹 브라우저를 확인하고, 
+chromium-browser가 기본값인지 확인하세요.
+다음 명령어를 사용해 기본값 설정을 수정할 수 있습니다
+sudo update-alternatives --config x-www-browser
+
+
+
+chromium-browser를 하드웨어 가속 없이 실행하도록 설정
+
 import webbrowser
+import subprocess
 import time
 import tensorflow as tf
 import numpy as np
@@ -7,11 +18,6 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 import board
 import neopixel
-import webbrowser
-
-# chromium 브라우저를 명시적으로 설정
-chrome_path = "/usr/bin/chromium-browser --disable-gpu --no-sandbox --disable-software-rasterizer %s"
-webbrowser.get(chrome_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
 
 # 네오픽셀 설정
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
@@ -19,7 +25,7 @@ LED_COUNT = 3  # LED 개수를 설정합니다.
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
 # 모델 및 레이블 파일 절대 경로 설정
-model_path = '/home/pi/cos/converted_keras/keras_model.h5'  # 라즈베리파이에 맞게 경로 수정
+model_path = '/home/pi/cos/converted_keras/keras_model.h5'
 labels_path = '/home/pi/cos/converted_keras/labels.txt'
 
 # 모델 로드
@@ -32,15 +38,15 @@ with open(labels_path, 'r') as f:
 # 이미지 전처리 함수
 def preprocess_image(image):
     image = Image.fromarray(image)
-    image = image.resize((224, 224))  # 모델에 맞게 이미지 크기 조정
-    image = np.array(image) / 255.0  # 스케일링
-    image = np.expand_dims(image, axis=0)  # 배치 차원 추가
+    image = image.resize((224, 224))
+    image = np.array(image) / 255.0
+    image = np.expand_dims(image, axis=0)
     return image
 
 # 웹캠 초기화
 camera_index = 0
 cap = cv2.VideoCapture(camera_index)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  # 카메라 해상도 조정
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
 
 if not cap.isOpened():
@@ -67,21 +73,21 @@ while True:
     # 예측된 표정에 따른 동작
     try:
         if predicted_class == 'joy':
-            pixels.fill((0, 255, 0))  # 초록색
-            webbrowser.open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
+            pixels.fill((0, 255, 0))
+            subprocess.Popen(["chromium-browser", "--disable-gpu", "--no-sandbox", "https://www.youtube.com/results?search_query=행복하게+해주는+노래"])
         elif predicted_class == 'sad':
-            pixels.fill((0, 0, 255))  # 파란색
-            webbrowser.open("https://www.youtube.com/results?search_query=위로해주는+노래")
+            pixels.fill((0, 0, 255))
+            subprocess.Popen(["chromium-browser", "--disable-gpu", "--no-sandbox", "https://www.youtube.com/results?search_query=위로해주는+노래"])
         elif predicted_class == 'angry':
-            pixels.fill((255, 0, 0))  # 빨간색
-            webbrowser.open("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
+            pixels.fill((255, 0, 0))
+            subprocess.Popen(["chromium-browser", "--disable-gpu", "--no-sandbox", "https://www.youtube.com/results?search_query=화났을때+듣는+노래"])
         elif predicted_class == 'emotionless':
-            pixels.fill((255, 255, 0))  # 노란색
-            webbrowser.open("https://www.youtube.com/results?search_query=신나게+해주는+노래")
+            pixels.fill((255, 255, 0))
+            subprocess.Popen(["chromium-browser", "--disable-gpu", "--no-sandbox", "https://www.youtube.com/results?search_query=신나게+해주는+노래"])
 
         pixels.show()
         time.sleep(1)
-        pixels.fill((0, 0, 0))  # LED 끄기
+        pixels.fill((0, 0, 0))
         pixels.show()
 
     except Exception as e:
@@ -95,18 +101,3 @@ while True:
 cap.release()
 cv2.destroyAllWindows()
 
-
-
-만약 chromium을 기본 브라우저로 설정하고 싶다면:
-sudo update-alternatives --config x-www-browser
-라이브러리 설치 확인:
-pip3 install tensorflow opencv-python pillow adafruit-blinka
-
-chromium-browser --disable-gpu --disable-software-rasterizer
-
-
-webbrowser.open(url): 해당 URL을 기본 브라우저에서 열어줍니다. 셀레늄처럼 브라우저를 직접 제어하지는 않지만, 
-간단히 웹 페이지를 여는 데 유용합니다.
-try-except 블록: 예외 상황을 처리하여 코드가 중단되지 않도록 합니다.
-이 방법은 단순히 페이지를 열고 브라우저의 동작을 추가로 제어하지 않아도 되는 경우에 적합합니다.
-이렇게 하면 셀레늄 대신 webbrowser 모듈을 사용하여 더 간단하게 유튜브 페이지를 열 수 있습니다. 셀레늄을 사용하지 않고도 충분히 원하는 기능을 구현할 수 있으니 한 번 시도해 보세요!
