@@ -20,6 +20,9 @@ tar -xzvf 0.31.0.tar.gz
 cd geckodriver-arm64-build-0.31.0/
 
 설치 및 이동
+
+sudo mv geckodriver /usr/local/bin/
+sudo chmod +x /usr/local/bin/geckodriver
 geckodriver --version
 
 
