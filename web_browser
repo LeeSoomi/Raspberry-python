@@ -4,7 +4,6 @@ import tensorflow as tf
 import board
 import neopixel
 import time
-import threading
 
 # 설정 부분
 MODEL_PATH = "/home/pi/cos/converted_keras/keras_model.h5"
@@ -14,7 +13,11 @@ NUM_PIXELS = 3               # 네오픽셀 개수
 ORDER = neopixel.GRB         # 네오픽셀 색상 순서
 
 # 네오픽셀 객체 생성
-pixels = neopixel.NeoPixel(LED_PIN, NUM_PIXELS, brightness=0.5, auto_write=False, pixel_order=ORDER)
+try:
+    pixels = neopixel.NeoPixel(LED_PIN, NUM_PIXELS, brightness=0.5, auto_write=False, pixel_order=ORDER)
+    print("네오픽셀 초기화 성공")
+except Exception as e:
+    print(f"네오픽셀 초기화 오류: {e}")
 
 # Keras 모델과 라벨 불러오기
 model = tf.keras.models.load_model(MODEL_PATH)
@@ -32,22 +35,12 @@ colors = {
 }
 
 def set_color(color):
-    pixels.fill(color)
-    pixels.show()  # LED 색상을 실제로 적용
-
-# 프로그램 종료를 위한 타이머
-def stop_program():
-    time.sleep(60)  # 1분 동안 대기
-    print("프로그램이 종료됩니다.")
-    cap.release()
-    cv2.destroyAllWindows()
-    pixels.fill((0, 0, 0))
-    pixels.show()
-    exit(0)
-
-# 타이머 스레드 시작
-timer_thread = threading.Thread(target=stop_program)
-timer_thread.start()
+    try:
+        pixels.fill(color)
+        pixels.show()  # LED 색상을 실제로 적용
+        print(f"LED 색상 설정: {color}")  # 디버그 메시지
+    except Exception as e:
+        print(f"LED 제어 오류: {e}")
 
 # 웹캠 초기화
 cap = cv2.VideoCapture(0)
@@ -79,8 +72,8 @@ try:
         cv2.putText(frame, f"{label} ({label_index})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.imshow("Webcam Feed", frame)
 
-        # 'q' 키로 즉시 종료
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        # 1초 대기, 'q' 키로 종료
+        if cv2.waitKey(1000) & 0xFF == ord('q'):
             break
 
 except KeyboardInterrupt:
@@ -90,6 +83,7 @@ finally:
     pixels.show()
     cap.release()
     cv2.destroyAllWindows()
+
 
 
 주요 변경 사항:
