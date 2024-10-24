@@ -1,5 +1,14 @@
 필요한 모듈 설치
-sudo pip3 install tensorflow opencv-python rpi_ws281x adafruit-circuitpython-neopixel
+1. TensorFlow 설치
+sudo pip3 install tensorflow
+
+2. OpenCV 설치
+sudo apt-get install libhdf5-dev libhdf5-serial-dev libqtgui4 libqtwebkit4 libqt4-test python3-pyqt5
+sudo pip3 install opencv-python
+
+3. 네오픽셀 제어를 위한 라이브러리 설치
+sudo pip3 install rpi_ws281x adafruit-circuitpython-neopixel
+
 
 코드 예제
 
