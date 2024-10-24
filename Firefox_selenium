@@ -4,114 +4,43 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
-import tensorflow as tf
-import numpy as np
-import cv2
-from tensorflow.keras.models import load_model
-from PIL import Image
-import board
-import neopixel
 
-# 네오픽셀 설정
-LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
-LED_COUNT = 3  # LED 개수를 설정합니다.
-pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
-
-# 모델 및 레이블 파일 절대 경로 설정
-model_path = '/home/pi/cos/converted_keras/keras_model.h5'  # 라즈베리파이에 맞게 경로 수정
-labels_path = '/home/pi/cos/converted_keras/labels.txt'
-
-# 모델 로드
-model = load_model(model_path)
-
-# 클래스 이름 로드
-with open(labels_path, 'r') as f:
-    class_names = [line.strip() for line in f.readlines()]
-
-# 이미지 전처리 함수
-def preprocess_image(image):
-    image = Image.fromarray(image)
-    image = image.resize((224, 224))  # 모델에 맞게 이미지 크기 조정
-    image = np.array(image) / 255.0  # 스케일링
-    image = np.expand_dims(image, axis=0)  # 배치 차원 추가
-    return image
-
-# 웹캠 초기화
-camera_index = 0
-cap = cv2.VideoCapture(camera_index)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  # 카메라 해상도 조정
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-
-# Firefox 옵션 설정 (헤드리스 모드로 실행하여 GUI 없이 브라우저 실행)
+# Firefox 옵션 설정
 options = webdriver.FirefoxOptions()
-# options.add_argument("--headless")  # 필요시 주석 처리하여 GUI 모드로 실행
+# options.add_argument("--headless")  # GUI 없이 실행하려면 주석 해제
 
-# Firefox 서비스 설정 (geckodriver의 경로 지정)
+# Firefox 서비스 설정
 service = Service(executable_path="/usr/local/bin/geckodriver")
 
 # Firefox 드라이버 시작
 driver = webdriver.Firefox(options=options, service=service)
 
-if not cap.isOpened():
-    print("웹캠을 열 수 없습니다.")
-    exit()
+try:
+    # 웹페이지 열기
+    driver.get("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("프레임을 읽을 수 없습니다.")
-        break
+    # 검색창이 로드될 때까지 기다리기 (최대 10초)
+    search_box = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.XPATH, '//*[@id="search"]'))
+    )
 
-    # 이미지 전처리
-    image = preprocess_image(frame)
+    # 검색창에 텍스트 입력 후 엔터 키 전송
+    search_box.send_keys("행복하게 해주는 노래")
+    search_box.submit()
 
-    # 예측 수행
-    predictions = model.predict(image)
-    predicted_class = class_names[np.argmax(predictions)]
+    # 유튜브 영상 재생 처리 대기
+    video = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, '//*[@id="video-title"]'))
+    )
+    video.click()
 
-    # 결과 출력
-    cv2.putText(frame, f'Predicted: {predicted_class}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-    cv2.imshow('Webcam', frame)
+    # 비디오가 재생될 때까지 대기
+    time.sleep(10)
 
-    # 예측된 표정에 따른 동작
-    try:
-        if predicted_class == 'joy':
-            pixels.fill((0, 255, 0))  # 초록색
-            driver.get("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
-        elif predicted_class == 'sad':
-            pixels.fill((0, 0, 255))  # 파란색
-            driver.get("https://www.youtube.com/results?search_query=위로해주는+노래")
-        elif predicted_class == 'angry':
-            pixels.fill((255, 0, 0))  # 빨간색
-            driver.get("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
-        elif predicted_class == 'emotionless':
-            pixels.fill((255, 255, 0))  # 노란색
-            driver.get("https://www.youtube.com/results?search_query=신나게+해주는+노래")
-
-        pixels.show()
-        time.sleep(1)
-        pixels.fill((0, 0, 0))  # LED 끄기
-        pixels.show()
-
-        # 유튜브 영상 재생 처리
-        video = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@id="video-title"]'))
-        )
-        video.click()
-
-        time.sleep(10)
-    except Exception as e:
-        print(f"Error playing video: {e}")
-
-    # 'q' 키를 누르면 종료
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-
-# 웹캠 및 창 닫기
-cap.release()
-cv2.destroyAllWindows()
-driver.quit()
-
+except Exception as e:
+    print(f"Error occurred: {e}")
+finally:
+    driver.quit()
 
 
 https://calvinsthoughtbubble.tistory.com/56
