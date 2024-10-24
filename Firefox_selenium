@@ -14,13 +14,14 @@ James Mortensen's Repository에서 ARMv7 버전을 확인하세요.
 
 (64비트)
 wget https://github.com/yuanjv/geckodriver-arm64-build/archive/refs/tags/0.31.0.tar.gz
-tar -xzvf geckodriver-*.tar.gz
-sudo mv geckodriver /usr/local/bin/
-sudo chmod +x /usr/local/bin/geckodriver
 
+압축 해제
+tar -xzvf 0.31.0.tar.gz
+cd geckodriver-arm64-build-0.31.0/
 
-sudo mv geckodriver /usr/local/bin/
-sudo chmod +x /usr/local/bin/geckodriver
+설치 및 이동
+geckodriver --version
+
 
 
 Chrome 대신 Firefox를 사용하려면 아래와 같이 코드를 약간 수정해 주시면 됩니다.
