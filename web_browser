@@ -7,12 +7,6 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 import board
 import neopixel
-import webbrowser
-
-# chromium 브라우저를 명시적으로 설정
-chrome_path = "/usr/bin/chromium-browser %s"
-webbrowser.get(chrome_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
-
 
 # 네오픽셀 설정
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
@@ -20,7 +14,7 @@ LED_COUNT = 3  # LED 개수를 설정합니다.
 pixels = neopixel.NeoPixel(LED_PIN, LED_COUNT)
 
 # 모델 및 레이블 파일 절대 경로 설정
-model_path = '/home/pi/cos/converted_keras/keras_model.h5'  # 라즈베리파이에 맞게 경로 수정
+model_path = '/home/pi/cos/converted_keras/keras_model.h5'
 labels_path = '/home/pi/cos/converted_keras/labels.txt'
 
 # 모델 로드
@@ -69,16 +63,16 @@ while True:
     try:
         if predicted_class == 'joy':
             pixels.fill((0, 255, 0))  # 초록색
-            webbrowser.open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
+            webbrowser.get("/usr/bin/chromium-browser %s").open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
         elif predicted_class == 'sad':
             pixels.fill((0, 0, 255))  # 파란색
-            webbrowser.open("https://www.youtube.com/results?search_query=위로해주는+노래")
+            webbrowser.get("/usr/bin/chromium-browser %s").open("https://www.youtube.com/results?search_query=위로해주는+노래")
         elif predicted_class == 'angry':
             pixels.fill((255, 0, 0))  # 빨간색
-            webbrowser.open("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
+            webbrowser.get("/usr/bin/chromium-browser %s").open("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
         elif predicted_class == 'emotionless':
             pixels.fill((255, 255, 0))  # 노란색
-            webbrowser.open("https://www.youtube.com/results?search_query=신나게+해주는+노래")
+            webbrowser.get("/usr/bin/chromium-browser %s").open("https://www.youtube.com/results?search_query=신나게+해주는+노래")
 
         pixels.show()
         time.sleep(1)
@@ -95,6 +89,7 @@ while True:
 # 웹캠 및 창 닫기
 cap.release()
 cv2.destroyAllWindows()
+
 
 만약 chromium을 기본 브라우저로 설정하고 싶다면:
 sudo update-alternatives --config x-www-browser
