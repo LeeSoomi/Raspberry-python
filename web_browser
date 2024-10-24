@@ -7,6 +7,12 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 import board
 import neopixel
+import webbrowser
+
+# chromium 브라우저를 명시적으로 설정
+chrome_path = "/usr/bin/chromium-browser %s"
+webbrowser.get(chrome_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
+
 
 # 네오픽셀 설정
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
