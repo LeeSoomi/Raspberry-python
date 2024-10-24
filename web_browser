@@ -101,6 +101,7 @@ sudo update-alternatives --config x-www-browser
 라이브러리 설치 확인:
 pip3 install tensorflow opencv-python pillow adafruit-blinka
 
+chromium-browser --disable-gpu --disable-software-rasterizer
 
 
 webbrowser.open(url): 해당 URL을 기본 브라우저에서 열어줍니다. 셀레늄처럼 브라우저를 직접 제어하지는 않지만, 
