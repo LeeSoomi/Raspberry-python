@@ -1,15 +1,5 @@
-
-update-alternatives를 사용하여 기본 웹 브라우저를 확인하고, 
-chromium-browser가 기본값인지 확인하세요.
-다음 명령어를 사용해 기본값 설정을 수정할 수 있습니다
-sudo update-alternatives --config x-www-browser
-
-
-
-chromium-browser를 하드웨어 가속 없이 실행하도록 설정
 import webbrowser
 import time
-import os
 import tensorflow as tf
 import numpy as np
 import cv2
@@ -18,8 +8,9 @@ from PIL import Image
 import board
 import neopixel
 
-# 환경 변수 설정
-os.environ['DISPLAY'] = ':0'
+# Firefox 브라우저를 명시적으로 설정
+firefox_path = "/usr/bin/firefox %s"
+webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
 
 # 네오픽셀 설정
 LED_PIN = board.D18  # 사용 중인 핀을 설정합니다.
@@ -44,9 +35,6 @@ def preprocess_image(image):
     image = np.array(image) / 255.0  # 스케일링
     image = np.expand_dims(image, axis=0)  # 배치 차원 추가
     return image
-
-# Chromium 브라우저 경로 설정
-chrome_path = "/usr/bin/chromium-browser %s"
 
 # 웹캠 초기화
 camera_index = 0
@@ -79,16 +67,16 @@ while True:
     try:
         if predicted_class == 'joy':
             pixels.fill((0, 255, 0))  # 초록색
-            webbrowser.get(chrome_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
+            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=행복하게+해주는+노래")
         elif predicted_class == 'sad':
             pixels.fill((0, 0, 255))  # 파란색
-            webbrowser.get(chrome_path).open("https://www.youtube.com/results?search_query=위로해주는+노래")
+            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=위로해주는+노래")
         elif predicted_class == 'angry':
             pixels.fill((255, 0, 0))  # 빨간색
-            webbrowser.get(chrome_path).open("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
+            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=화났을때+듣는+노래")
         elif predicted_class == 'emotionless':
             pixels.fill((255, 255, 0))  # 노란색
-            webbrowser.get(chrome_path).open("https://www.youtube.com/results?search_query=신나게+해주는+노래")
+            webbrowser.get(firefox_path).open("https://www.youtube.com/results?search_query=신나게+해주는+노래")
 
         pixels.show()
         time.sleep(1)
