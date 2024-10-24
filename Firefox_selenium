@@ -65,7 +65,7 @@ if not cap.isOpened():
     exit()
 
 # Firefox 웹드라이버 서비스 초기화 (geckodriver 경로 명시)
-service = Service('/usr/local/bin/geckodriver')
+service = Service('/usr/local/bin/geckodriver', log_path='/home/pi/geckodriver.log')
 
 # 메인 루프: 웹캠 프레임을 읽고 표정을 인식하여 대응하는 동작 수행
 while True:
@@ -128,7 +128,6 @@ while True:
 # 웹캠 및 창 닫기
 cap.release()
 cv2.destroyAllWindows()
-
 
 
 코드 설명
