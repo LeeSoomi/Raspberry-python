@@ -27,7 +27,7 @@ NUM_PIXELS = 3               # 네오픽셀 개수
 ORDER = neopixel.GRB         # 네오픽셀 색상 순서
 
 # 네오픽셀 객체 생성
-pixels = neopixel.NeoPixel(LED_PIN, NUM_PIXELS, brightness=0.5, auto_write=True, pixel_order=ORDER)
+pixels = neopixel.NeoPixel(LED_PIN, NUM_PIXELS, brightness=0.5, auto_write=False, pixel_order=ORDER)
 
 # Keras 모델과 라벨 불러오기
 model = tf.keras.models.load_model(MODEL_PATH)
@@ -46,6 +46,7 @@ colors = {
 
 def set_color(color):
     pixels.fill(color)
+    pixels.show()  # LED 색상을 실제로 적용
 
 # 웹캠 초기화
 cap = cv2.VideoCapture(0)
@@ -71,9 +72,10 @@ try:
             set_color(colors[label])
         
         # 현재 인식된 표정 출력
-        print(f"Detected expression: {label}")
+        print(f"Detected expression: {label} (Index: {label_index})")
 
-        # 웹캠 화면 보여주기
+        # 웹캠 화면에 라벨과 번호 표시
+        cv2.putText(frame, f"{label} ({label_index})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
         cv2.imshow("Webcam Feed", frame)
 
         # 1초 대기, 'q' 키로 종료
