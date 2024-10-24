@@ -5,8 +5,20 @@ sudo apt-get install firefox-esr
 
 1.2 Geckodriver 설치
 라즈베리파이의 ARM 아키텍처에 맞는 geckodriver를 설치
-wget https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux-arm7.tar.gz
-tar -xvzf geckodriver-v0.33.0-linux-arm7.tar.gz
+32비트 (ARMv7): 만약 32비트 라즈베리파이 OS를 사용 중이라면, 
+아래의 비공식 빌드에서 geckodriver를 다운로드해야 합니다. 
+James Mortensen's Repository에서 ARMv7 버전을 확인하세요.
+
+64비트 (ARM64): 64비트 운영체제라면 Yuanjv's Repository에서 ARM64용 geckodriver를 다운로드할 수 있습니다. 
+이 경우 geckodriver 버전이 linux-aarch64 또는 arm64로 표시된 파일을 선택하면 됩니다.
+
+(64비트)
+wget https://github.com/mozilla/geckodriver/releases
+tar -xzvf geckodriver-*.tar.gz
+sudo mv geckodriver /usr/local/bin/
+sudo chmod +x /usr/local/bin/geckodriver
+
+
 sudo mv geckodriver /usr/local/bin/
 sudo chmod +x /usr/local/bin/geckodriver
 
