@@ -26,6 +26,11 @@ sudo chmod +x /usr/local/bin/geckodriver
 geckodriver --version
 
 
+wget https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux-aarch64.tar.gz
+tar -xzvf geckodriver-v0.33.0-linux-aarch64.tar.gz
+sudo mv geckodriver /usr/local/bin/
+sudo chmod +x /usr/local/bin/geckodriver
+
 
 Chrome 대신 Firefox를 사용하려면 아래와 같이 코드를 약간 수정해 주시면 됩니다.
 
