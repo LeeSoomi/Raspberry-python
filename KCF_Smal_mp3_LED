@@ -1,36 +1,61 @@
-VLC 설치
-라즈베리파이에 VLC가 설치되어 있지 않다면, 다음 명령어로 설치할 수 있습니다:
-
-sudo apt update
-sudo apt install vlc
+happy: 17번 (yellow)
+expressionless: 4번 (red)
+surprised: 27번 (green)
 
 
 import tensorflow.keras
 import numpy as np
 import cv2
-import subprocess
+import pygame
 import time
+from gpiozero import LED
 
 # TensorFlow 모델 로드
-model = tensorflow.keras.models.load_model('keras_model.h5')
+model = tensorflow.keras.models.load_model('/home/pi/cos/converted_keras/converted_keras/keras_model.h5')
 
 # OpenCV로 웹캠 캡처 시작
 cap = cv2.VideoCapture(0)
 size = (224, 224)
 classes = ['happy', 'expressionless', 'surprised']
 
-# 음악 파일 경로 설정
+# Pygame 초기화 및 음악 파일 로드
+pygame.mixer.init()
 music_files = {
     'happy': '/home/pi/cos/converted_keras/happy.mp3',
     'expressionless': '/home/pi/cos/converted_keras/expressionless.mp3',
     'surprised': '/home/pi/cos/converted_keras/surprised.mp3'
 }
 
-def play_music_vlc(emotion):
-    # VLC를 이용해 MP3 파일 재생
-    process = subprocess.Popen(['cvlc', '--play-and-exit', music_files[emotion]])
+# LED 설정 (GPIO 핀 번호)
+led_yellow = LED(17)  # happy
+led_red = LED(4)      # expressionless
+led_green = LED(27)   # surprised
+
+def play_music(emotion):
+    # 각 감정에 맞는 LED 켜기
+    if emotion == 'happy':
+        led_yellow.on()
+        led_red.off()
+        led_green.off()
+    elif emotion == 'expressionless':
+        led_yellow.off()
+        led_red.on()
+        led_green.off()
+    elif emotion == 'surprised':
+        led_yellow.off()
+        led_red.off()
+        led_green.on()
+
+    # 음악 재생
+    pygame.mixer.music.load(music_files[emotion])
+    pygame.mixer.music.play()
     time.sleep(60)  # 1분 재생
-    process.terminate()  # VLC 종료
+    pygame.mixer.music.stop()
+
+    # 모든 LED 끄기
+    led_yellow.off()
+    led_red.off()
+    led_green.off()
 
 # 웹캠에서 이미지 인식 및 음악 재생 루프
 while cap.isOpened():
@@ -60,8 +85,8 @@ while cap.isOpened():
                 fontScale=0.8, color=(255, 255, 255), thickness=2)
     cv2.imshow('result', smaller_img)
 
-    # 인식된 표정에 따라 음악 재생
-    play_music_vlc(detected_emotion)
+    # 인식된 표정에 따라 음악 재생 및 LED 제어
+    play_music(detected_emotion)
 
     # 'q' 키를 누르면 종료
     if cv2.waitKey(1) == ord('q'):
@@ -70,13 +95,3 @@ while cap.isOpened():
 cap.release()
 cv2.destroyAllWindows()
 
-
-
-
-
-주요 변경 사항:
-subprocess 모듈을 이용하여 VLC 플레이어를 호출합니다. cvlc는 커맨드라인에서 VLC를 실행하는 명령어입니다.
---play-and-exit 옵션을 사용하여 음악이 끝나면 VLC가 자동으로 종료되도록 합니다.
-**process.terminate()**를 통해 1분 후에 VLC 프로세스를 강제로 종료합니다.
-vlc 명령어로 변경하여 GUI 모드로 VLC를 실행하게 했습니다. (cvlc는 GUI 없이 실행됨)
-subprocess.Popen이 실행될 때 VLC 창이 떠서 음악을 재생할 것입니다.
