@@ -1,6 +1,6 @@
-happy: 17번 (yellow)
-expressionless: 4번 (red)
-surprised: 27번 (green)
+led_yellow: GPIO 17번 핀 (happy)
+led_red: GPIO 4번 핀 (expressionless)
+led_green: GPIO 27번 핀 (surprised)
 
 
 import tensorflow.keras
