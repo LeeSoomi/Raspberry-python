@@ -26,43 +26,46 @@ music_files = {
     'surprised': '/home/pi/cos/converted_keras/surprised.mp3'
 }
 
+# 이미지 파일 경로 (음악 재생 중에 표시할 이미지)
+images_to_show = {
+    'happy': '/home/pi/cos/converted_keras/happy_image.jpg',
+    'expressionless': '/home/pi/cos/converted_keras/expressionless_image.jpg',
+    'surprised': '/home/pi/cos/converted_keras/surprised_image.jpg'
+}
+
 # LED 설정 (GPIO 핀 번호)
 led_yellow = LED(17)  # happy
 led_red = LED(4)      # expressionless
 led_green = LED(27)   # surprised
 
-# 예측 확률 임계값 설정
-THRESHOLD = 0.6
-
-# 초기 감정 값 설정
-detected_emotion = "None"
-
 def play_music(emotion):
-    # 감정이 None이 아닐 때만 음악 재생
+    # 감정에 맞는 LED 켜기
     if emotion == 'happy':
         led_yellow.on()
         led_red.off()
         led_green.off()
-        pygame.mixer.music.load(music_files[emotion])
-        pygame.mixer.music.play()
-        time.sleep(60)
-        pygame.mixer.music.stop()
     elif emotion == 'expressionless':
         led_yellow.off()
         led_red.on()
         led_green.off()
-        pygame.mixer.music.load(music_files[emotion])
-        pygame.mixer.music.play()
-        time.sleep(60)
-        pygame.mixer.music.stop()
     elif emotion == 'surprised':
         led_yellow.off()
         led_red.off()
         led_green.on()
-        pygame.mixer.music.load(music_files[emotion])
-        pygame.mixer.music.play()
-        time.sleep(60)
-        pygame.mixer.music.stop()
+
+    # 음악 재생
+    pygame.mixer.music.load(music_files[emotion])
+    pygame.mixer.music.play()
+
+    # 음악 재생 중 이미지 표시
+    img = cv2.imread(images_to_show[emotion])
+    while pygame.mixer.music.get_busy():
+        cv2.imshow('Emotion Image', img)
+        if cv2.waitKey(100) & 0xFF == ord('q'):  # 'q'를 누르면 중지
+            pygame.mixer.music.stop()
+            break
+
+    cv2.destroyWindow('Emotion Image')
 
     # 모든 LED 끄기
     led_yellow.off()
@@ -89,14 +92,7 @@ while cap.isOpened():
     # 모델 예측
     prediction = model.predict(img_input)
     idx = np.argmax(prediction)
-    max_probability = prediction[0][idx]  # 가장 높은 확률 값
-
-    # 임계값 기준으로 감정 결정
-    new_detected_emotion = classes[idx] if max_probability >= THRESHOLD else "None"
-
-    # 새로운 감정이 기존 감정과 다를 때만 갱신
-    if new_detected_emotion != detected_emotion:
-        detected_emotion = new_detected_emotion
+    detected_emotion = classes[idx]
 
     # 결과 표시
     smaller_img = cv2.resize(img, (800, 600))
@@ -105,8 +101,7 @@ while cap.isOpened():
     cv2.imshow('result', smaller_img)
 
     # 인식된 표정에 따라 음악 재생 및 LED 제어
-    if detected_emotion != "None":
-        play_music(detected_emotion)
+    play_music(detected_emotion)
 
     # 'q' 키를 누르면 종료
     if cv2.waitKey(1) == ord('q'):
