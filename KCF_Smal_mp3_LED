@@ -13,7 +13,7 @@ from gpiozero import LED
 # TensorFlow 모델 로드
 model = tensorflow.keras.models.load_model('/home/pi/cos/converted_keras/converted_keras/keras_model.h5')
 
-# OpenCV로 웹캠 캡처 시작
+# OpenCV로 웹캡 캡처 시작
 cap = cv2.VideoCapture(0)
 size = (224, 224)
 classes = ['happy', 'expressionless', 'surprised']
@@ -31,26 +31,35 @@ led_yellow = LED(17)  # happy
 led_red = LED(4)      # expressionless
 led_green = LED(27)   # surprised
 
+# 예측 확률 임계값 설정
+THRESHOLD = 0.6
+
 def play_music(emotion):
-    # 각 감정에 맞는 LED 켜기
+    # 감정이 None이 아닐 때만 음악 재생
     if emotion == 'happy':
         led_yellow.on()
         led_red.off()
         led_green.off()
+        pygame.mixer.music.load(music_files[emotion])
+        pygame.mixer.music.play()
+        time.sleep(60)
+        pygame.mixer.music.stop()
     elif emotion == 'expressionless':
         led_yellow.off()
         led_red.on()
         led_green.off()
+        pygame.mixer.music.load(music_files[emotion])
+        pygame.mixer.music.play()
+        time.sleep(60)
+        pygame.mixer.music.stop()
     elif emotion == 'surprised':
         led_yellow.off()
         led_red.off()
         led_green.on()
-
-    # 음악 재생
-    pygame.mixer.music.load(music_files[emotion])
-    pygame.mixer.music.play()
-    time.sleep(60)  # 1분 재생
-    pygame.mixer.music.stop()
+        pygame.mixer.music.load(music_files[emotion])
+        pygame.mixer.music.play()
+        time.sleep(60)
+        pygame.mixer.music.stop()
 
     # 모든 LED 끄기
     led_yellow.off()
@@ -77,7 +86,8 @@ while cap.isOpened():
     # 모델 예측
     prediction = model.predict(img_input)
     idx = np.argmax(prediction)
-    detected_emotion = classes[idx]
+    max_probability = prediction[0][idx]  # 가장 높은 확률 값
+    detected_emotion = classes[idx] if max_probability >= THRESHOLD else "None"
 
     # 결과 표시
     smaller_img = cv2.resize(img, (800, 600))
@@ -86,7 +96,8 @@ while cap.isOpened():
     cv2.imshow('result', smaller_img)
 
     # 인식된 표정에 따라 음악 재생 및 LED 제어
-    play_music(detected_emotion)
+    if detected_emotion != "None":
+        play_music(detected_emotion)
 
     # 'q' 키를 누르면 종료
     if cv2.waitKey(1) == ord('q'):
@@ -95,3 +106,13 @@ while cap.isOpened():
 cap.release()
 cv2.destroyAllWindows()
 
+
+
+임계값을 설정해서 확률이 낮을 경우 "None"으로 감지되도록 하고, 
+그 상태에서는 음악이 재생되지 않게끔 코드를 수정하면 됩니다.
+
+아래는 수정된 코드입니다. 임계값(THRESHOLD)을 설정해 인식된 감정의 확률이 그보다 낮으면 음악이 재생되지 않도록 합니다:
+THRESHOLD 설정: 모델이 예측한 결과의 확률이 THRESHOLD 이상일 때만 감정을 "감지된" 것으로 처리합니다.
+play_music 함수 호출 조건 변경: detected_emotion이 "None"이 아닐 때만 play_music 함수를 호출하게 변경하였습니다. 
+이렇게 하면 확률이 낮아 감정이 인식되지 않을 때는 음악이 재생되지 않습니다.
+감정 인식 실패 시 LED 및 음악 재생 방지: 감정 인식이 되지 않을 때는 모든 LED를 끄고 음악이 재생되지 않도록 구현했습니다.
