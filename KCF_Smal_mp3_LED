@@ -57,12 +57,24 @@ def play_music(emotion):
     pygame.mixer.music.load(music_files[emotion])
     pygame.mixer.music.play()
 
-    # 음악 재생 중 이미지 표시
+    # 음악 재생 중 이미지 및 시간 표시
     img = cv2.imread(images_to_show[emotion])
+    
     while pygame.mixer.music.get_busy():
-        cv2.imshow('Emotion Image', img)
-        if cv2.waitKey(100) & 0xFF == ord('q'):  # 'q'를 누르면 중지
+        # 현재 재생된 시간 계산
+        elapsed_time = int(pygame.mixer.music.get_pos() / 1000)  # 밀리초를 초로 변환
+        
+        # 이미지에 재생 시간 추가
+        display_img = img.copy()
+        cv2.putText(display_img, f"Time: {elapsed_time}s", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        
+        # 이미지 화면에 표시
+        cv2.imshow('Emotion Image', display_img)
+        key = cv2.waitKey(100) & 0xFF
+        
+        if key == ord('v'):  # 'v'를 누르면 음악과 이미지 중지 및 카메라 캡처
             pygame.mixer.music.stop()
+            capture_frame()
             break
 
     cv2.destroyWindow('Emotion Image')
@@ -71,6 +83,16 @@ def play_music(emotion):
     led_yellow.off()
     led_red.off()
     led_green.off()
+
+def capture_frame():
+    # 현재 카메라 프레임 캡처 및 저장
+    ret, frame = cap.read()
+    if ret:
+        # 캡처된 이미지 저장
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        filename = f"/home/pi/cos/converted_keras/captured_{timestamp}.jpg"
+        cv2.imwrite(filename, frame)
+        print(f"이미지 저장 완료: {filename}")
 
 # 웹캠에서 이미지 인식 및 음악 재생 루프
 while cap.isOpened():
@@ -111,12 +133,15 @@ cap.release()
 cv2.destroyAllWindows()
 
 
+1) capture_frame 함수 추가:
 
-임계값을 설정해서 확률이 낮을 경우 "None"으로 감지되도록 하고, 
-그 상태에서는 음악이 재생되지 않게끔 코드를 수정하면 됩니다.
+v를 눌렀을 때 호출되며, 현재 카메라에서 프레임을 캡처하여 파일로 저장합니다.
+파일 이름에는 타임스탬프가 포함되어 저장될 때마다 다른 이름을 갖게 됩니다.
 
-아래는 수정된 코드입니다. 임계값(THRESHOLD)을 설정해 인식된 감정의 확률이 그보다 낮으면 음악이 재생되지 않도록 합니다:
-THRESHOLD 설정: 모델이 예측한 결과의 확률이 THRESHOLD 이상일 때만 감정을 "감지된" 것으로 처리합니다.
-play_music 함수 호출 조건 변경: detected_emotion이 "None"이 아닐 때만 play_music 함수를 호출하게 변경하였습니다. 
-이렇게 하면 확률이 낮아 감정이 인식되지 않을 때는 음악이 재생되지 않습니다.
-감정 인식 실패 시 LED 및 음악 재생 방지: 감정 인식이 되지 않을 때는 모든 LED를 끄고 음악이 재생되지 않도록 구현했습니다.
+2) play_music 함수의 v 키 동작 변경:
+
+v 키를 누르면 pygame.mixer.music.stop()을 호출해 음악을 중지하고, 
+capture_frame()을 호출하여 현재 카메라 프레임을 캡처하고 저장합니다.
+이제 v 키를 누르면 음악과 이미지가 중지되고, 
+그 시점의 카메라 이미지를 캡처하여 저장하게 됩니다. 
+원하는 위치에 이미지를 저장하고 파일명을 쉽게 구분할 수 있도록 타임스탬프 형식으로 지정했습니다.
