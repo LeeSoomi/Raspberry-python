@@ -1,0 +1,77 @@
+VLC 설치
+라즈베리파이에 VLC가 설치되어 있지 않다면, 다음 명령어로 설치할 수 있습니다:
+
+sudo apt update
+sudo apt install vlc
+
+
+import tensorflow.keras
+import numpy as np
+import cv2
+import subprocess
+import time
+
+# TensorFlow 모델 로드
+model = tensorflow.keras.models.load_model('keras_model.h5')
+
+# OpenCV로 웹캠 캡처 시작
+cap = cv2.VideoCapture(0)
+size = (224, 224)
+classes = ['happy', 'expressionless', 'surprised']
+
+# 음악 파일 경로 설정
+music_files = {
+    'happy': '/home/pi/cos/converted_keras/happy.mp3',
+    'expressionless': '/home/pi/cos/converted_keras/expressionless.mp3',
+    'surprised': '/home/pi/cos/converted_keras/surprised.mp3'
+}
+
+def play_music_vlc(emotion):
+    # VLC를 이용해 MP3 파일 재생
+    process = subprocess.Popen(['cvlc', '--play-and-exit', music_files[emotion]])
+    time.sleep(60)  # 1분 재생
+    process.terminate()  # VLC 종료
+
+# 웹캠에서 이미지 인식 및 음악 재생 루프
+while cap.isOpened():
+    ret, img = cap.read()
+    if not ret:
+        break
+
+    h, w, _ = img.shape
+    cx = h / 2
+    img = img[:, 100:100 + img.shape[0]]
+    img = cv2.flip(img, 1)
+
+    # 이미지 전처리
+    img_input = cv2.resize(img, size)
+    img_input = cv2.cvtColor(img_input, cv2.COLOR_BGR2RGB)
+    img_input = (img_input.astype(np.float32) / 127.0) - 1
+    img_input = np.expand_dims(img_input, axis=0)
+
+    # 모델 예측
+    prediction = model.predict(img_input)
+    idx = np.argmax(prediction)
+    detected_emotion = classes[idx]
+
+    # 결과 표시
+    smaller_img = cv2.resize(img, (800, 600))
+    cv2.putText(smaller_img, text=detected_emotion, org=(10, 30), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                fontScale=0.8, color=(255, 255, 255), thickness=2)
+    cv2.imshow('result', smaller_img)
+
+    # 인식된 표정에 따라 음악 재생
+    play_music_vlc(detected_emotion)
+
+    # 'q' 키를 누르면 종료
+    if cv2.waitKey(1) == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+
+
+주요 변경 사항:
+subprocess 모듈을 이용하여 VLC 플레이어를 호출합니다. cvlc는 커맨드라인에서 VLC를 실행하는 명령어입니다.
+--play-and-exit 옵션을 사용하여 음악이 끝나면 VLC가 자동으로 종료되도록 합니다.
+**process.terminate()**를 통해 1분 후에 VLC 프로세스를 강제로 종료합니다.
