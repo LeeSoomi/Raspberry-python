@@ -13,7 +13,7 @@ from gpiozero import LED
 # TensorFlow 모델 로드
 model = tensorflow.keras.models.load_model('/home/pi/cos/converted_keras/converted_keras/keras_model.h5')
 
-# OpenCV로 웹캡 캡처 시작
+# OpenCV로 웹캠 캡처 시작
 cap = cv2.VideoCapture(0)
 size = (224, 224)
 classes = ['happy', 'expressionless', 'surprised']
@@ -33,6 +33,9 @@ led_green = LED(27)   # surprised
 
 # 예측 확률 임계값 설정
 THRESHOLD = 0.6
+
+# 초기 감정 값 설정
+detected_emotion = "None"
 
 def play_music(emotion):
     # 감정이 None이 아닐 때만 음악 재생
@@ -87,7 +90,13 @@ while cap.isOpened():
     prediction = model.predict(img_input)
     idx = np.argmax(prediction)
     max_probability = prediction[0][idx]  # 가장 높은 확률 값
-    detected_emotion = classes[idx] if max_probability >= THRESHOLD else "None"
+
+    # 임계값 기준으로 감정 결정
+    new_detected_emotion = classes[idx] if max_probability >= THRESHOLD else "None"
+
+    # 새로운 감정이 기존 감정과 다를 때만 갱신
+    if new_detected_emotion != detected_emotion:
+        detected_emotion = new_detected_emotion
 
     # 결과 표시
     smaller_img = cv2.resize(img, (800, 600))
