@@ -13,7 +13,7 @@ import pygame
 import time
 
 # TensorFlow 모델 로드
-model = tensorflow.keras.models.load_model('keras_model.h5')
+model = tensorflow.keras.models.load_model('/home/pi/cos/converted_keras/converted_keras/keras_model.h5')
 
 # OpenCV로 웹캠 캡처 시작
 cap = cv2.VideoCapture(0)
@@ -23,9 +23,9 @@ classes = ['happy', 'expressionless', 'surprised']
 # Pygame 초기화 및 음악 파일 로드
 pygame.mixer.init()
 music_files = {
-    'happy': 'happy.mp3',
-    'expressionless': 'expressionless.mp3',
-    'surprised': 'surprised.mp3'
+    'happy': '/home/pi/cos/converted_keras/happy.mp3',
+    'expressionless': '/home/pi/cos/converted_keras/expressionless.mp3',
+    'surprised': '/home/pi/cos/converted_keras/surprised.mp3'
 }
 
 def play_music(emotion):
