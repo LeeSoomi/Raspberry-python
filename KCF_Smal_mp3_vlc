@@ -27,8 +27,8 @@ music_files = {
 }
 
 def play_music_vlc(emotion):
-    # VLC를 GUI 모드로 실행
-    process = subprocess.Popen(['vlc', '--play-and-exit', music_files[emotion]])
+    # VLC를 이용해 MP3 파일 재생
+    process = subprocess.Popen(['cvlc', '--play-and-exit', music_files[emotion]])
     time.sleep(60)  # 1분 재생
     process.terminate()  # VLC 종료
 
@@ -69,6 +69,7 @@ while cap.isOpened():
 
 cap.release()
 cv2.destroyAllWindows()
+
 
 
 
