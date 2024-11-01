@@ -1,0 +1,30 @@
+1. 모듈 설치
+cd ~/MagicMirror/modules
+git clone https://github.com/shbatm/MMM-RTSPStream.git
+cd MMM-RTSPStream
+npm install
+
+2. 설정 파일 수정 설치 후 config.js에서 아래와 같이 설정을 추가
+{
+    module: "MMM-RTSPStream",
+    position: "middle_center", // 스마트미러 가운데에 배치
+    config: {
+        autoStart: true,
+        rotateStreams: false,
+        rotateStreamTimeout: 10,
+        moduleWidth: 640,
+        moduleHeight: 480,
+        localPlayer: "omxplayer",
+        stream1: {
+            name: 'Webcam',
+            url: 'rtsp://your-webcam-url', // 웹캠 URL을 여기에 입력
+            frameRate: '30',
+            width: 640,
+            height: 480,
+            autoStart: true,
+            rotateStreams: false
+        }
+    }
+}
+
+3.웹캠 스트림 설정 로컬 웹캠의 RTSP 스트림 URL을 알아낸 뒤 url 필드에 입력해야 합니다. 
