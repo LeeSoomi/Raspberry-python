@@ -37,6 +37,15 @@ html
 chromium-browser --use-fake-ui-for-media-stream
 크롬 브라우저의 "권한 자동 허용" 설정 사용
 
+Kiosk 모드로 Chromium 시작하기 터미널에서 
+아래 명령어를 실행하여 Kiosk 모드로 Chromium을 시작해 보세요. 
+이때 --use-fake-ui-for-media-stream 플래그를 포함시킵니다.
+
+chromium-browser --kiosk --use-fake-ui-for-media-stream --app=http://localhost:8080/webcam.html
+이렇게 하면 webcam.html이 전체 화면으로 실행되고 권한 요청을 자동으로 허용하게 됩니다.
+
+
+
 3) MagicMirror 설정 파일 수정
 config.js 파일에 MMM-IFRAME 모듈을 추가하여 위에서 만든 HTML 파일을 불러옵니다
 {
