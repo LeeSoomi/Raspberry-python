@@ -43,6 +43,8 @@ cap = cv2.VideoCapture(0)
 command = [
     'ffmpeg',
     '-re',  # 실시간 스트리밍
+    '-f', 'image2pipe',
+    '-vcodec', 'mjpeg',  # JPEG 형식으로 전송
     '-i', '-',  # 표준 입력에서 비디오 프레임을 가져옴
     '-vcodec', 'libx264',
     '-preset', 'ultrafast',
@@ -59,8 +61,11 @@ while cap.isOpened():
     if not ret:
         break
 
-    # 프레임을 ffmpeg 프로세스에 전달
-    process.stdin.write(frame.tobytes())
+    # 프레임을 JPEG로 인코딩
+    ret, jpeg = cv2.imencode('.jpg', frame)
+    if ret:
+        # 인코딩된 JPEG 데이터를 ffmpeg에 전달
+        process.stdin.write(jpeg.tobytes())
 
 # 종료 처리
 cap.release()
