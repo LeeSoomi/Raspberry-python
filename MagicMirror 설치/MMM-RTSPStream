@@ -58,6 +58,9 @@ config.js 파일에 MMM-IFRAME 모듈을 추가하여 위에서 만든 HTML 파�
     }
 }
 
+sudo chmod -R 755 /home/pi/MagicMirror/modules/MMM-iFrame/public
+
+
 4)스마트미러 재시작
 config.js 파일을 저장한 후, MagicMirror를 다시 시작하여 웹캠 화면이 가운데에 표시되는지 확인
 
