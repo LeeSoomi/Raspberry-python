@@ -1,83 +1,51 @@
-1. 모듈 설치
+1) MMM-IFRAME 모듈 설치
 cd ~/MagicMirror/modules
-git clone https://github.com/shbatm/MMM-RTSPStream.git
-cd MMM-RTSPStream
-npm install
+git clone https://github.com/alberttwong/MMM-iFrame.git
 
-2. 설정 파일 수정 설치 후 config.js에서 아래와 같이 설정을 추가
-{
-    module: "MMM-RTSPStream",
-    position: "middle_center",
-    config: {
-        autoStart: true,
-        rotateStreams: false,
-        rotateStreamTimeout: 10,
-        moduleWidth: 640,
-        moduleHeight: 480,
-        localPlayer: "omxplayer",
-        stream1: {
-            name: 'Webcam',
-            url: 'rtsp://localhost:8554/webcam',
-            frameRate: '30',
-            width: 640,
-            height: 480,
-            autoStart: true,
-            rotateStreams: false
+2) 웹캠 화면 브라우저에서 열기
+라즈베리파이의 기본 웹캠을 HTML5 <video> 태그로 열어 웹캠 화면을 보여줄 수 있습니다. 
+이때 웹캠을 지원하는 간단한 HTML 파일을 만들어, 이를 MMM-IFRAME으로 스마트미러에 띄우는 방식입니다.
+
+예를 들어 /home/pi/MagicMirror/modules/MMM-iFrame/public/webcam.html이라는 파일을 생성하고, 
+다음과 같이 HTML 코드를 작성하세요.
+html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Stream</title>
+</head>
+<body>
+    <video autoplay playsinline width="640" height="480" id="videoElement"></video>
+    <script>
+        const video = document.getElementById('videoElement');
+        if (navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                video.srcObject = stream;
+            })
+            .catch((error) => {
+                console.error("Webcam access error:", error);
+            });
         }
+    </script>
+</body>
+</html>
+
+
+3) MagicMirror 설정 파일 수정
+config.js 파일에 MMM-IFRAME 모듈을 추가하여 위에서 만든 HTML 파일을 불러옵니다
+{
+    module: "MMM-iFrame",
+    position: "middle_center", // 스마트미러 가운데에 배치
+    config: {
+        url: "http://localhost:8080/modules/MMM-iFrame/public/webcam.html", // 생성한 HTML 파일 경로
+        width: "640px",
+        height: "480px"
     }
 }
 
-3.웹캠 스트림 설정 로컬 웹캠의 RTSP 스트림 URL을 알아낸 뒤 url 필드에 입력해야 합니다. 
-sudo apt-get install ffmpeg
-
-
-camera.py코드
-
-import cv2
-import subprocess
-
-# 웹캠 열기
-cap = cv2.VideoCapture(0)
-
-# ffmpeg로 RTSP 스트림 송출 명령어
-command = [
-    'ffmpeg',
-    '-re',  # 실시간 스트리밍
-    '-f', 'image2pipe',
-    '-vcodec', 'mjpeg',  # JPEG 형식으로 전송
-    '-i', '-',  # 표준 입력에서 비디오 프레임을 가져옴
-    '-vcodec', 'libx264',
-    '-preset', 'ultrafast',
-    '-f', 'rtsp',
-    'rtsp://localhost:8554/webcam'  # 로컬 호스트에서 RTSP 스트림 생성
-]
-
-# ffmpeg 프로세스 시작
-process = subprocess.Popen(command, stdin=subprocess.PIPE)
-
-# 웹캠 프레임을 읽어서 ffmpeg로 전달
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
-
-    # 프레임을 JPEG로 인코딩
-    ret, jpeg = cv2.imencode('.jpg', frame)
-    if ret:
-        # 인코딩된 JPEG 데이터를 ffmpeg에 전달
-        process.stdin.write(jpeg.tobytes())
-
-# 종료 처리
-cap.release()
-process.stdin.close()
-process.wait()
-
-위 코드는 OpenCV를 사용하여 웹캠에서 비디오 프레임을 읽고, 
-ffmpeg를 통해 RTSP 스트림으로 송출합니다. 
-여기서 RTSP URL은 rtsp://localhost:8554/webcam입니다.
-
-MMM-RTSPStream 모듈에서 RTSP URL 사용하기
-위에서 설정한 rtsp://localhost:8554/webcam URL을 MMM-RTSPStream 모듈의 config.js에 입력합니다.
-
-camera.py를 실행하여 스트림을 송출한 후에 스마트미러를 실행해야 합니다.
-camera.py와 MMM-RTSPStream 모두 같은 장치에서 실행 중일 경우, 성능에 영향을 줄 수 있으니 주의하세요.
+4)스마트미러 재시작
+config.js 파일을 저장한 후, MagicMirror를 다시 시작하여 웹캠 화면이 가운데에 표시되는지 확인
