@@ -1,0 +1,6 @@
+pip install opencv-python
+pip install Pillow
+pip install openpyxl
+pip install pytesseract
+pip install pytesseract opencv-python Pillow openpyxl pandas
+//OCR과 데이터 정리를 위해 다음 라이브러리를 설치
