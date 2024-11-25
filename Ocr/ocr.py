@@ -1,49 +1,44 @@
 import cv2
 import pytesseract
 from PIL import Image
-import openpyxl
+import pandas as pd
 
-# Tesseract 경로 설정 (Tesseract이 설치된 경로)
+# Tesseract OCR 경로 설정 (Windows의 경우)
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# 웹캠 열기
-cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    print("웹캠을 열 수 없습니다.")
-    exit()
+# 이미지 파일 경로
+image_path = r'C:\Users\sm759\Documents\KYC\captured_receipt.jpg'
 
-print("스페이스바를 눌러 사진을 촬영하세요.")
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("프레임을 가져올 수 없습니다.")
-        break
+# 이미지 로드 및 전처리
+image = cv2.imread(image_path)
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # 흑백 변환
+_, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)  # 이진화
 
-    cv2.imshow('Capture Image', frame)
+# 텍스트 추출
+text = pytesseract.image_to_string(thresh, lang='kor')  # 'lang=kor'로 한글 설정
+print("추출된 텍스트:")
+print(text)
 
-    # 스페이스바를 누르면 촬영
-    if cv2.waitKey(1) & 0xFF == ord(' '):
-        image_path = 'captured_receipt.jpg'
-        cv2.imwrite(image_path, frame)
-        print(f"이미지가 {image_path}로 저장되었습니다.")
-        break
+# 추출된 텍스트를 줄 단위로 나누기
+lines = text.split("\n")
 
-# 웹캠 닫기
-cap.release()
-cv2.destroyAllWindows()
+# 데이터 정리 및 Excel 저장
+data = {"항목": [], "가격": []}
+for line in lines:
+    parts = line.split()  # 공백 기준으로 나누기
+    if len(parts) >= 2:  # 적어도 2개의 데이터가 있어야 함
+        try:
+            price = int(parts[-1].replace(",", ""))  # 마지막 항목을 가격으로 가정
+            name = " ".join(parts[:-1])  # 나머지를 항목 이름으로 가정
+            data["항목"].append(name)
+            data["가격"].append(price)
+        except ValueError:
+            continue
 
-# OCR 처리
-image = Image.open(image_path)
-text = pytesseract.image_to_string(image, lang='eng')
+# 데이터프레임 생성
+df = pd.DataFrame(data)
 
-# Excel 파일 생성 및 저장
-wb = openpyxl.Workbook()
-sheet = wb.active
-sheet.title = "Receipt Data"
-
-for i, line in enumerate(text.split('\n'), start=1):
-    sheet.cell(row=i, column=1, value=line)
-
-wb.save('receipt_data.xlsx')
-
-print("작업이 완료되었습니다. receipt_data.xlsx 파일이 생성되었습니다.")
+# Excel 파일로 저장
+excel_path = r'C:\Users\sm759\Documents\KYC\receipt_data.xlsx'
+df.to_excel(excel_path, index=False, engine='openpyxl')
+print(f"데이터가 Excel 파일로 저장되었습니다: {excel_path}")
