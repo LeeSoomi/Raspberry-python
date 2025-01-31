@@ -1,0 +1,78 @@
+Taurus 4.0 TGAM 뇌파 센서 모듈 개발 키트와 Neurosky EEG 제어 헤드밴드를 활용해서 
+뇌파를 감지하고 로봇팔을 제어하는 프로젝트
+TGAM(ThinkGear ASIC Module) 칩을 기반으로 작동하기 때문에, 데이터를 읽어들이는 방식을 활용
+
+1. 장치 연결 및 데이터 수집
+Neurosky EEG 헤드밴드는 Bluetooth(일반적으로 시리얼 통신)으로 데이터를 전송하고,
+Taurus 4.0 TGAM 모듈은 UART(직렬통신) 을 통해 데이터를 출력
+따라서,
+Neurosky EEG → Bluetooth로 PC 혹은 Raspberry Pi 연결
+Taurus 4.0 TGAM → UART를 통해 아두이노/라즈베리파이에 직접 연결
+
+
+## Neurosky 헤드밴드에서 데이터 읽기 (Python 예제)
+
+import serial
+
+# 시리얼 포트 설정 (Windows: COMx, Linux: /dev/ttyUSBx)
+ser = serial.Serial('COM4', 57600)
+
+while True:
+    data = ser.readline()  # 데이터 읽기
+    print(data)  # EEG 데이터 출력
+
+
+## Taurus 4.0 TGAM 모듈을 라즈베리파이(UART)와 연결 (Python 예제)
+
+import serial
+
+ser = serial.Serial("/dev/serial0", baudrate=57600, timeout=1)
+
+while True:
+    if ser.in_waiting:
+        data = ser.readline()
+        print(data)
+
+2. 뇌파 데이터 분석
+TGAM 칩은 주의력(Attention), 명상(Meditation), 그리고 EEG Raw Data를 제공.
+주의력(Attention) 값이 높으면 ‘집중’ 상태, 명상 값이 높으면 ‘이완’ 상태로 볼 수 있음
+
+##데이터 예제
+{ "eSense": { "attention": 80, "meditation": 20 }, "rawEeg": [ 400, 390, 420, ... ] }
+>> 이 데이터를 머신러닝 모델로 학습시켜 특정 패턴이 나오면 로봇팔을 제어
+
+
+3. 로봇팔 제어
+예를 들어, 주의력(attention) 80 이상이면 로봇팔이 움직이도록 설정할 수 있어.
+Arduino 또는 Raspberry Pi에서 서보모터를 제어할 수 있음
+
+##  Arduino로 서보모터 제어 (Python)
+
+import serial
+import time
+
+ser = serial.Serial("/dev/serial0", baudrate=57600, timeout=1)
+servo = serial.Serial("/dev/ttyUSB0", 9600)  # 서보모터 제어용
+
+while True:
+    data = ser.readline()
+    if b'attention' in data:
+        attention = int(data.split(b':')[1])
+        print(f"Attention: {attention}")
+
+        if attention > 80:
+            print("Moving Robot Arm")
+            servo.write(b'MOVE\n')  # 서보모터 제어 명령 전송
+
+
+4. 머신러닝을 이용한 패턴 학습
+
+Neurosky의 EEG 데이터는 알파, 베타, 감마파로 구성되어 있어서.
+이걸 활용하면 집중 패턴, 이완 패턴, 의도된 신호(손을 움직이려는 생각 등) 를 구분할 수 있음
+
+✅ 머신러닝 모델을 학습시키는 방법
+
+Neurosky 데이터 수집 → CSV로 저장
+라벨링: 집중(1), 이완(0)
+SVM, CNN 같은 모델로 패턴 학습
+학습된 모델을 통해 실시간 데이터 입력 시 로봇팔 동작 예측
