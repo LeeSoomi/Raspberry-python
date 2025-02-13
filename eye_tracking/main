@@ -1,0 +1,92 @@
+1단계: 카메라에서 눈동자를 인식하는 코드 작성
+ 1.프로젝트 설정
+먼저 프로젝트를 위한 가상환경을 만들고 필요한 라이브러리를 설치하겠습니다.
+🔹 가상환경 생성 및 활성화
+
+  conda create -n eye_tracking python=3.9 -y
+  conda activate eye_tracking
+  
+  eye_tracking이라는 가상환경을 만들고 Python 3.9을 설치합니다.
+  환경을 활성화합니다.
+
+🔹 필수 라이브러리 설치
+카메라를 사용하고 얼굴을 감지하기 위해 필요한 라이브러리를 설치합니다.
+
+pip install opencv-python dlib numpy
+
+✅ 설치된 패키지
+opencv-python → 웹캠 사용 및 이미지 처리
+dlib → 얼굴 랜드마크 감지를 위한 라이브러리
+numpy → 데이터 처리
+
+
+✅ 2. 눈동자 인식 코드 작성
+이제 카메라에서 얼굴을 감지하고, 눈동자를 추적하는 코드를 작성하겠습니다.
+
+🔹 eye_tracking.py 코드
+import cv2
+import dlib
+
+# Dlib 얼굴 감지기 및 랜드마크 모델 로드
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")  # 모델 파일 필요
+
+# 웹캠 열기
+cap = cv2.VideoCapture(0)
+
+def get_eye_centers(landmarks):
+    """눈동자 중심 좌표 계산"""
+    left_eye = landmarks.parts()[36:42]  # 왼쪽 눈
+    right_eye = landmarks.parts()[42:48]  # 오른쪽 눈
+
+    left_center = (sum([p.x for p in left_eye]) // 6, sum([p.y for p in left_eye]) // 6)
+    right_center = (sum([p.x for p in right_eye]) // 6, sum([p.y for p in right_eye]) // 6)
+
+    return left_center, right_center
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # 좌우 반전
+    frame = cv2.flip(frame, 1)
+
+    # 흑백 변환
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # 얼굴 감지
+    faces = detector(gray)
+    for face in faces:
+        landmarks = predictor(gray, face)
+
+        # 눈동자 중심 좌표 가져오기
+        left_eye_center, right_eye_center = get_eye_centers(landmarks)
+
+        # 눈동자 위치 표시
+        cv2.circle(frame, left_eye_center, 5, (0, 255, 0), -1)  # 초록색 점
+        cv2.circle(frame, right_eye_center, 5, (0, 255, 0), -1)
+
+    # 화면 출력
+    cv2.imshow("Eye Tracking", frame)
+
+    # 'q'를 누르면 종료
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
+
+
+
+✅ 3. 실행 방법
+shape_predictor_68_face_landmarks.dat 파일이 프로젝트 폴더에 있어야 합니다.
+
+다운로드 링크: Dlib Face Landmark Model
+압축을 풀고 프로젝트 폴더에 저장하세요.
+
+Python 실행
+python eye_tracking.py
+
+웹캠이 실행되면 얼굴을 감지하고, 눈동자 위치에 초록색 점이 표시됩니다.
+
