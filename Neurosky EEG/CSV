@@ -1,3 +1,6 @@
+pip install pyserial pandas
+-------------------------
+
 import serial
 import time
 
@@ -36,3 +39,5 @@ def read_neuro_data():
 
 # 실행
 read_neuro_data()
+-------------------------
+python sscom_logger.py
