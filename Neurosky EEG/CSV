@@ -1,0 +1,38 @@
+import serial
+import time
+
+# 시리얼 포트 설정 (포트 번호는 Windows와 Linux/Mac에서 다름)
+PORT = "COM4"  # Windows의 경우
+# PORT = "/dev/ttyUSB0"  # Linux/Mac의 경우
+BAUD_RATE = 57600  # TGAM 센서의 기본 Baud Rate
+
+def read_neuro_data():
+    try:
+        # 시리얼 포트 열기
+        ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
+        print(f"시리얼 포트 {PORT} 연결됨, 데이터 수집 시작...")
+
+        while True:
+            if ser.in_waiting > 0:
+                data = ser.readline().decode(errors='ignore').strip()
+                print(f"뇌파 데이터: {data}")  # 실시간 데이터 출력
+
+                # 원하는 데이터 파싱
+                # 예: 집중도(attention)와 명상(meditation) 값 추출
+                if "Attention" in data:
+                    attention_value = int(data.split(":")[1])
+                    print(f"▶ 집중도: {attention_value}")
+
+                if "Meditation" in data:
+                    meditation_value = int(data.split(":")[1])
+                    print(f"▶ 명상도: {meditation_value}")
+
+                time.sleep(0.1)  # CPU 부하 방지
+    except Exception as e:
+        print(f"오류 발생: {e}")
+    finally:
+        ser.close()
+        print("시리얼 포트 종료됨.")
+
+# 실행
+read_neuro_data()
