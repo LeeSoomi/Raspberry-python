@@ -5,82 +5,111 @@
 
 ------------------------------------
 
-import csv
-import time
 import serial
+import time
 import binascii
-from collections import defaultdict
 
-PORT = "COM9"  # 뇌파 센서 연결된 포트
-BAUD_RATE = 57600
-TARGET_COUNT = 50  # 각 동작당 최소 50개 목표
+PORT = "COM9"  # 포트 확인 후 수정
+BAUD_RATE = 57600  # 🛠 9600에서 57600으로 변경 (더 빠르고 안정적)
 
-# 데이터 개수 카운트
-data_counts = defaultdict(int)
+def extract_brainwaves(packet):
+    """ThinkGear 패킷에서 베타파와 감마파만 정확히 추출"""
+    beta_low, beta_high = None, None
+    gamma_low, gamma_high = None, None
 
-# CSV 파일 확인 및 기존 데이터 개수 체크
-file_path = "brainwave_data.csv"
+    try:
+        index = 0
+        while index < len(packet):
+            code = packet[index:index+2]  # 데이터 유형 코드 (Hex 2자리)
+            if code in ["06", "07", "08", "09"]:  # Beta Low, Beta High, Gamma Low, Gamma High
+                value_hex = packet[index+2:index+8]  # 3바이트(6자리 16진수)
+                
+                # 🛠 3바이트 데이터를 10진수로 변환
+                try:
+                    value = int(value_hex, 16)
+                    value = value & 0xFFFFFF  # 24비트 마스킹
 
-try:
-    with open(file_path, "r") as file:
-        reader = csv.reader(file)
-        next(reader)  # 헤더 건너뛰기
-        for row in reader:
-            if len(row) == 5:
-                data_counts[row[4]] += 1
-except FileNotFoundError:
-    pass  # 파일이 없으면 새로 생성
+                    # 🛠 이상값 필터링 (정상적인 범위: 0~10000)
+                    if value > 10000:
+                        value = None  # 비정상적인 값 제거
+                except ValueError:
+                    value = None  # 변환 오류 방지
 
-# CSV 파일 열기 (쓰기 모드)
-with open(file_path, "a", newline="") as file:
-    writer = csv.writer(file)
-    
-    # 파일이 없었으면 헤더 추가
-    if not data_counts:
-        writer.writerow(["Beta Low", "Beta High", "Gamma Low", "Gamma High", "Action"])
+                if code == "06":
+                    beta_low = value
+                elif code == "07":
+                    beta_high = value
+                elif code == "08":
+                    gamma_low = value
+                elif code == "09":
+                    gamma_high = value
 
-def check_completion():
-    """모든 동작이 목표 개수(TARGET_COUNT)에 도달했는지 확인"""
-    return all(count >= TARGET_COUNT for count in data_counts.values())
+                index += 8  # 2(코드) + 6(데이터) 이동
+            else:
+                index += 2  # 다음 코드로 이동
+
+    except Exception as e:
+        print(f"데이터 처리 오류: {e}")
+
+    return beta_low, beta_high, gamma_low, gamma_high
 
 def read_neuro_data():
     try:
         ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
-        print(f"🧠 뇌파 데이터 수집 시작! (목표: 각 동작 {TARGET_COUNT}개)")
+        print(f"✅ 시리얼 포트 {PORT} 연결됨, 데이터 수집 시작...")
 
-        while not check_completion():  # 목표 개수 도달 전까지 계속 반복
+        buffer = b""
+
+        # 🛠 데이터가 올 때까지 기다리도록 추가
+        while ser.in_waiting == 0:
+            print("⏳ 데이터 수신 대기 중...")
+            time.sleep(0.5)
+
+        while True:
             if ser.in_waiting > 0:
-                raw_data = ser.read(64)
-                hex_data = binascii.hexlify(raw_data).decode('utf-8')
+                raw_data = ser.read(64)  # 64바이트씩 읽기 (패킷 길이 대비 증가)
+                buffer += raw_data
+
+                hex_data = binascii.hexlify(buffer).decode('utf-8')
 
                 if "aaaa" in hex_data:
-                    beta_low, beta_high, gamma_low, gamma_high = extract_brainwaves(hex_data)
-                    
-                    # 값이 정상적으로 수집된 경우만 저장
-                    if beta_low and beta_high and gamma_low and gamma_high:
-                        print("\n[현재 데이터 개수]")
-                        for action, count in data_counts.items():
-                            print(f"✅ {action}: {count}/{TARGET_COUNT}")
+                    start_index = hex_data.index("aaaa")
+                    packet_data = hex_data[start_index:]
 
-                        action = input("로봇팔 동작 입력 (왼쪽/오른쪽/위로/아래로/정지): ")
+                    if len(packet_data) > 6:
+                        try:
+                            length = int(packet_data[4:6], 16)
+                        except ValueError:
+                            length = 0  # 변환 오류 방지
 
-                        # 유효한 동작인지 확인하고 기록
-                        if action in ["왼쪽", "오른쪽", "위로", "아래로", "정지"]:
-                            data_counts[action] += 1
-                            writer.writerow([beta_low, beta_high, gamma_low, gamma_high, action])
-                            print(f"✅ 데이터 저장: {beta_low}, {beta_high}, {gamma_low}, {gamma_high} → {action}")
-                        else:
-                            print("❌ 올바른 동작을 입력하세요!")
+                        if len(packet_data) >= (6 + length * 2):
+                            valid_packet = packet_data[:(6 + length * 2)]
+
+                            beta_low, beta_high, gamma_low, gamma_high = extract_brainwaves(valid_packet)
+
+                            # 📌 값이 정상 범위(0~10000) 내에 있는 경우만 출력
+                            if beta_low is not None or beta_high is not None or gamma_low is not None or gamma_high is not None:
+                                print(f"🧠 베타파 (Low): {beta_low}, 베타파 (High): {beta_high}")
+                                print(f"⚡ 감마파 (Low): {gamma_low}, 감마파 (High): {gamma_high}")
+
+                            buffer = buffer[start_index + 2:]
+
+                else:
+                    print("❌ 유효한 데이터 패턴(aaaa) 없음, 다시 수신 중...")
+                    time.sleep(0.1)  # 데이터가 없는 경우 다시 시도
 
             time.sleep(0.05)
 
-        print("\n🎉 목표 개수 도달! 데이터 수집 완료.")
+    except serial.SerialException:
+        print(f"❌ 오류: 포트 '{PORT}'를 찾을 수 없습니다. 포트를 확인하세요!")
     except Exception as e:
         print(f"오류 발생: {e}")
     finally:
-        ser.close()
-        print("시리얼 포트 종료됨.")
+        if 'ser' in locals():
+            ser.close()
+            print("🔌 시리얼 포트 종료됨.")
 
+# 실행
 read_neuro_data()
 
 
