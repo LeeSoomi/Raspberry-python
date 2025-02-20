@@ -1,0 +1,111 @@
+✅ 목표 개수 충족 전까지 반복해서 데이터 수집
+✅ CSV 파일로 데이터 저장 (자동 누적)
+✅ 각 동작별 데이터 개수 실시간 표시
+✅ 목표 도달 시 데이터 수집 자동 종료
+
+------------------------------------
+
+import csv
+import time
+import serial
+import binascii
+from collections import defaultdict
+
+PORT = "COM9"  # 뇌파 센서 연결된 포트
+BAUD_RATE = 57600
+TARGET_COUNT = 50  # 각 동작당 최소 50개 목표
+
+# 데이터 개수 카운트
+data_counts = defaultdict(int)
+
+# CSV 파일 확인 및 기존 데이터 개수 체크
+file_path = "brainwave_data.csv"
+
+try:
+    with open(file_path, "r") as file:
+        reader = csv.reader(file)
+        next(reader)  # 헤더 건너뛰기
+        for row in reader:
+            if len(row) == 5:
+                data_counts[row[4]] += 1
+except FileNotFoundError:
+    pass  # 파일이 없으면 새로 생성
+
+# CSV 파일 열기 (쓰기 모드)
+with open(file_path, "a", newline="") as file:
+    writer = csv.writer(file)
+    
+    # 파일이 없었으면 헤더 추가
+    if not data_counts:
+        writer.writerow(["Beta Low", "Beta High", "Gamma Low", "Gamma High", "Action"])
+
+def check_completion():
+    """모든 동작이 목표 개수(TARGET_COUNT)에 도달했는지 확인"""
+    return all(count >= TARGET_COUNT for count in data_counts.values())
+
+def read_neuro_data():
+    try:
+        ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
+        print(f"🧠 뇌파 데이터 수집 시작! (목표: 각 동작 {TARGET_COUNT}개)")
+
+        while not check_completion():  # 목표 개수 도달 전까지 계속 반복
+            if ser.in_waiting > 0:
+                raw_data = ser.read(64)
+                hex_data = binascii.hexlify(raw_data).decode('utf-8')
+
+                if "aaaa" in hex_data:
+                    beta_low, beta_high, gamma_low, gamma_high = extract_brainwaves(hex_data)
+                    
+                    # 값이 정상적으로 수집된 경우만 저장
+                    if beta_low and beta_high and gamma_low and gamma_high:
+                        print("\n[현재 데이터 개수]")
+                        for action, count in data_counts.items():
+                            print(f"✅ {action}: {count}/{TARGET_COUNT}")
+
+                        action = input("로봇팔 동작 입력 (왼쪽/오른쪽/위로/아래로/정지): ")
+
+                        # 유효한 동작인지 확인하고 기록
+                        if action in ["왼쪽", "오른쪽", "위로", "아래로", "정지"]:
+                            data_counts[action] += 1
+                            writer.writerow([beta_low, beta_high, gamma_low, gamma_high, action])
+                            print(f"✅ 데이터 저장: {beta_low}, {beta_high}, {gamma_low}, {gamma_high} → {action}")
+                        else:
+                            print("❌ 올바른 동작을 입력하세요!")
+
+            time.sleep(0.05)
+
+        print("\n🎉 목표 개수 도달! 데이터 수집 완료.")
+    except Exception as e:
+        print(f"오류 발생: {e}")
+    finally:
+        ser.close()
+        print("시리얼 포트 종료됨.")
+
+read_neuro_data()
+
+
+---------------------------------------
+
+📊 실행 예시
+
+🧠 뇌파 데이터 수집 시작! (목표: 각 동작 50개)
+
+[현재 데이터 개수]
+✅ 왼쪽: 12/50
+✅ 오른쪽: 15/50
+✅ 위로: 10/50
+✅ 아래로: 18/50
+✅ 정지: 20/50
+
+로봇팔 동작 입력 (왼쪽/오른쪽/위로/아래로/정지): 위로
+✅ 데이터 저장: 512, 820, 435, 1234 → 위로
+
+[현재 데이터 개수]
+✅ 왼쪽: 12/50
+✅ 오른쪽: 15/50
+✅ 위로: 11/50
+✅ 아래로: 18/50
+✅ 정지: 20/50
+
+🎉 목표 개수 도달! 데이터 수집 완료.
+--------------------------------
