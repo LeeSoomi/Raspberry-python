@@ -1,36 +1,89 @@
 pip install pyserial pandas
 -------------------------
 
+
 import serial
 import time
+import binascii
 
-# 시리얼 포트 설정 (포트 번호는 Windows와 Linux/Mac에서 다름)
-PORT = "COM4"  # Windows의 경우
-# PORT = "/dev/ttyUSB0"  # Linux/Mac의 경우
-BAUD_RATE = 57600  # TGAM 센서의 기본 Baud Rate
+PORT = "COM9"  # 포트 확인 후 수정
+BAUD_RATE = 9600
+
+def extract_brainwaves(packet):
+    """ThinkGear 패킷에서 베타파와 감마파만 정확히 추출"""
+    beta_low, beta_high = None, None
+    gamma_low, gamma_high = None, None
+
+    try:
+        index = 0
+        while index < len(packet):
+            code = packet[index:index+2]  # 데이터 유형 코드 (Hex 2자리)
+            if code in ["06", "07", "08", "09"]:  # Beta Low, Beta High, Gamma Low, Gamma High
+                value_hex = packet[index+2:index+8]  # 3바이트(6자리 16진수)
+                
+                # 🛠 3바이트 데이터를 10진수로 변환
+                value = int(value_hex, 16)
+
+                # 🛠 ThinkGear 데이터는 3바이트(24비트)이므로, 상위 8비트가 잘못되었을 수 있음 → 하위 3바이트만 사용
+                value = value & 0xFFFFFF  # 24비트 마스킹
+
+                # 🛠 이상값 필터링 (정상적인 범위: 0~10000)
+                if value > 10000:
+                    value = None  # 비정상적인 값 제거
+
+                if code == "06":
+                    beta_low = value
+                elif code == "07":
+                    beta_high = value
+                elif code == "08":
+                    gamma_low = value
+                elif code == "09":
+                    gamma_high = value
+
+                index += 8  # 2(코드) + 6(데이터) 이동
+            else:
+                index += 2  # 다음 코드로 이동
+
+    except Exception as e:
+        print(f"데이터 처리 오류: {e}")
+
+    return beta_low, beta_high, gamma_low, gamma_high
 
 def read_neuro_data():
     try:
-        # 시리얼 포트 열기
         ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
         print(f"시리얼 포트 {PORT} 연결됨, 데이터 수집 시작...")
 
+        buffer = b""
+
         while True:
             if ser.in_waiting > 0:
-                data = ser.readline().decode(errors='ignore').strip()
-                print(f"뇌파 데이터: {data}")  # 실시간 데이터 출력
+                raw_data = ser.read(64)  # 64바이트씩 읽기 (패킷 길이 대비 증가)
+                buffer += raw_data
 
-                # 원하는 데이터 파싱
-                # 예: 집중도(attention)와 명상(meditation) 값 추출
-                if "Attention" in data:
-                    attention_value = int(data.split(":")[1])
-                    print(f"▶ 집중도: {attention_value}")
+                hex_data = binascii.hexlify(buffer).decode('utf-8')
 
-                if "Meditation" in data:
-                    meditation_value = int(data.split(":")[1])
-                    print(f"▶ 명상도: {meditation_value}")
+                if "aaaa" in hex_data:
+                    start_index = hex_data.index("aaaa")
+                    packet_data = hex_data[start_index:]
 
-                time.sleep(0.1)  # CPU 부하 방지
+                    if len(packet_data) > 6:
+                        length = int(packet_data[4:6], 16)
+
+                        if len(packet_data) >= (6 + length * 2):
+                            valid_packet = packet_data[:(6 + length * 2)]
+
+                            beta_low, beta_high, gamma_low, gamma_high = extract_brainwaves(valid_packet)
+
+                            # 📌 값이 정상 범위(0~10000) 내에 있는 경우만 출력
+                            if beta_low is not None or beta_high is not None or gamma_low is not None or gamma_high is not None:
+                                print(f"🧠 베타파 (Low): {beta_low}, 베타파 (High): {beta_high}")
+                                print(f"⚡ 감마파 (Low): {gamma_low}, 감마파 (High): {gamma_high}")
+
+                            buffer = buffer[start_index + 2:]
+
+                time.sleep(0.05)
+
     except Exception as e:
         print(f"오류 발생: {e}")
     finally:
@@ -39,5 +92,6 @@ def read_neuro_data():
 
 # 실행
 read_neuro_data()
+
 -------------------------
 python sscom_logger.py
