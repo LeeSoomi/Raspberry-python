@@ -1,0 +1,28 @@
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
+
+Adafruit_PWMServoDriver pca = Adafruit_PWMServoDriver(0x40); // I2C 주소: 0x40
+
+#define SERVOMIN  150  // 0도 (0.5ms)
+#define SERVOMAX  600  // 180도 (2.5ms)
+
+void setup() {
+    Serial.begin(115200);
+    pca.begin();
+    pca.setPWMFreq(50); // 서보모터는 50Hz 사용
+}
+
+// 특정 각도로 서보모터 설정하는 함수
+void setServoAngle(uint8_t channel, int angle) {
+    int pulse = map(angle, 0, 180, SERVOMIN, SERVOMAX);
+    pca.setPWM(channel, 0, pulse);
+}
+
+void loop() {
+    // 6개의 모터를 90도 위치로 설정
+    for (int i = 0; i < 6; i++) {
+        setServoAngle(i, 90);
+    }
+    
+    delay(1000); // 1초 대기 (움직임 확인용)
+}
