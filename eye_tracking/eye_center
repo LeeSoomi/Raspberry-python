@@ -1,0 +1,113 @@
+import cv2
+import dlib
+import time
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+
+# Dlib 모델 로드
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+
+# 웹캠 초기화
+cap = cv2.VideoCapture(0)
+
+# 한글 키보드 설정
+keyboard_keys = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ',
+                 'ㅏ', 'ㅑ', 'ㅓ', 'ㅕ', 'ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ', 'ㅣ']
+key_positions = [(50 + (i % 5) * 100, 300 + (i // 5) * 100) for i in range(len(keyboard_keys))]
+key_size = 80  # 키의 크기
+
+# 입력 상태 변수
+selected_key = None
+selection_start_time = None
+input_chars = []  # 입력된 자음/모음 저장
+eye_initial = None  # 눈동자 초기 위치 저장
+
+# 한글 폰트 설정
+font_path = "C:/Windows/Fonts/malgun.ttf"  # Windows에서 사용할 폰트
+font = ImageFont.truetype(font_path, 36)
+
+def calculate_eye_center(eye_points):
+    """눈 중심 좌표 계산"""
+    x_coords = [point.x for point in eye_points]
+    y_coords = [point.y for point in eye_points]
+    center_x = int(sum(x_coords) / len(x_coords))
+    center_y = int(sum(y_coords) / len(y_coords))
+    return (center_x, center_y)
+
+def draw_text(image, text, position, font, color):
+    """Pillow를 이용하여 한글 텍스트 렌더링"""
+    pil_image = Image.fromarray(image)
+    draw = ImageDraw.Draw(pil_image)
+    draw.text((position[0], position[1] - 20), text, font=font, fill=color)  # 글자를 위쪽으로 이동
+    return np.array(pil_image)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # 좌우 반전
+    frame = cv2.flip(frame, 1)
+
+    # 흑백 변환
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    # 얼굴 감지
+    faces = detector(gray)
+    for face in faces:
+        landmarks = predictor(gray, face)
+
+        # 왼쪽 및 오른쪽 눈의 랜드마크
+        left_eye_points = list(landmarks.parts())[36:42]
+        right_eye_points = list(landmarks.parts())[42:48]
+
+        # 눈 중심 좌표 계산
+        left_eye_center = calculate_eye_center(left_eye_points)
+
+        # **초기 눈동자 위치 설정**
+        if eye_initial is None:
+            eye_initial = left_eye_center  # 처음 감지된 눈동자 위치를 저장
+
+        # 눈동자의 상대적 이동량 계산
+        delta_x = left_eye_center[0] - eye_initial[0]
+        delta_y = left_eye_center[1] - eye_initial[1]
+
+        # 가상 키보드 표시
+        for i, key in enumerate(keyboard_keys):
+            x, y = key_positions[i]
+            color = (255, 255, 255)
+
+            # 눈동자의 상대적 위치와 키보드 영역을 비교
+            if (x - 50 <= delta_x <= x + key_size - 50 and
+                y - 50 <= delta_y <= y + key_size - 50):
+
+                color = (0, 255, 0)  # 녹색으로 선택
+                if selected_key == key:
+                    if selection_start_time is not None and time.time() - selection_start_time > 0.5:
+                        input_chars.append(key)
+                        print(f"Key Selected: {key}")
+                        selected_key = None
+                        selection_start_time = None
+                else:
+                    selected_key = key
+                    selection_start_time = time.time()
+            
+            # 키보드 렌더링
+            frame = cv2.rectangle(frame, (x, y), (x + key_size, y + key_size), color, -1)
+            frame = draw_text(frame, key, (x + 20, y + 20), font, (0, 0, 0))
+
+    # 조합된 한글 표시
+    if len(input_chars) >= 2:
+        combined = ''.join(input_chars[:2])  # 초성, 중성만 조합
+        frame = draw_text(frame, combined, (50, 200), font, (0, 0, 255))
+
+    # 화면 출력
+    cv2.imshow("Eye Tracking Korean Keyboard", frame)
+
+    # 'q'를 누르면 종료
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
