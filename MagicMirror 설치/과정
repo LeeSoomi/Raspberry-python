@@ -271,3 +271,23 @@ npm install -g pm2
 설치가 정상적으로 되었는지 확인하려면:
 pm2 -v
 버전 번호가 출력되면 성공이야!
+
+매직미러 실행 스크립트 등록
+pm2 start ~/MagicMirror/mm.sh
+
+
+PM2가 부팅 시 자동 실행되도록 설정
+pm2 save
+pm2 startup
+그러면 아래와 같은 메시지가 나올 거야:
+
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u pi --hp /home/pi
+
+여기 나온 명령어를 복사해서 실행하면 돼.
+sudo reboot
+
+부팅 후 자동 실행되었는지 확인하려면:
+
+pm2 list
+
+만약 MagicMirror가 실행 중이면 성공이야! 
