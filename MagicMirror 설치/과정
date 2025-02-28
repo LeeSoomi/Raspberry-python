@@ -233,29 +233,41 @@ if (typeof module !== "undefined") { module.exports = config; }
 
 
 자동실행
-1. pm2를 이용한 자동 실행 설정 (추천 방법)
-PM2는 프로세스를 관리하는 도구로, 매직미러를 자동 실행하는 데 많이 사용
-1) PM2 설치
+
+1. sudo를 사용하여 설치 (빠른 해결)
+sudo npm install -g pm2
+이렇게 하면 루트 권한으로 pm2를 설치할 수 있어. 하지만 이 방식은 보안상 권장되지 않기 때문에, 
+아래 방법을 시도하는 것이 더 좋을 수 있어.
+
+
+2. 현재 사용자에게 npm 전역 패키지 설치 권한 부여
+1) npm 전역 경로 확인
+npm config get prefix
+>> 보통 /usr/lib 또는 /usr/local 경로가 나올 거야.
+2) 해당 디렉토리의 권한을 변경
+sudo chown -R $(whoami) $(npm config get prefix)/lib/node_modules
+이렇게 하면 현재 사용자가 npm 전역 패키지를 설치할 수 있는 권한을 갖게 돼.
+3) 다시 pm2 설치
 npm install -g pm2
 
-2) 매직미러 실행 스크립트 만들기
-pm2 start ~/MagicMirror/mm.sh
-pm2 save
-pm2 startup
-그러면 PM2가 자동 실행을 위한 명령을 출력할 거야. 거기 나오는 명령을 그대로 실행하면 돼. 예를 들어:
-sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u pi --hp /home/pi
-(사용자 이름이 pi가 아니라면 pi 부분을 자신의 사용자명으로 변경)
+3. npm 전역 패키지 경로를 변경하여 사용자 홈 디렉토리로 설치
+전역 패키지를 사용자 홈 디렉토리(~/.npm-global)로 설정하면 루트 권한 없이도 설치할 수 있어.
 
-3) 재부팅 후 확인
-라즈베리를 재부팅하고, 자동 실행되는지 확인:
+1) npm 전역 설치 경로 변경
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
 
-sudo reboot
-부팅 후 정상적으로 실행되는지 확인하려면:
 
-pm2 list
+2) 환경 변수 수정
+echo 'export PATH=$HOME/.npm-global/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
 
-만약 실행되지 않는다면, 수동으로 실행하고 다시 저장:
+3) pm2 다시 설치
+npm install -g pm2
+이제 pm2가 정상적으로 설치될 거야.
 
-pm2 start ~/MagicMirror/mm.sh
-pm2 save
 
+4. 설치 확인
+설치가 정상적으로 되었는지 확인하려면:
+pm2 -v
+버전 번호가 출력되면 성공이야!
