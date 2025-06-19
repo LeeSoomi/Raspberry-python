@@ -1,0 +1,60 @@
+예시 ① Zero-width watermark 삽입
+
+def gpt_watermark_text(text):
+    watermark = "\u200B\u200C\u200D"  # 보이지 않는 유니코드 문자
+    return text + watermark
+>>>>>
+사람이 복사해서 붙여넣으면 텍스트 길이는 늘어났지만 눈으로는 차이가 없음
+GPT가 만든 것인지 나중에 판별 가능
+
+------------------------------------------------
+예시 ② HTML 주석으로 숨김
+<!-- GENERATED_BY=GPT-v4-0619 -->
+<p>이 콘텐츠는 사용자에게 보여지는 부분입니다.</p>
+
+>>>>>>>>>>>>
+사용자는 브라우저에서 안 보지만
+"페이지 소스 보기"나 자동 판독기로 확인 가능
+---------------------------------------
+
+2. 워터마크 생성 및 검출기 코드
+
+# 보이지 않는 워터마크 문자 (zero-width characters)
+WATERMARK_SIGNATURE = "\u200B\u200C\u200D"  # → Zero-width space, non-joiner, joiner
+
+# ✅ 워터마크 추가 함수
+def add_watermark(text):
+    return text + WATERMARK_SIGNATURE
+
+# ✅ 워터마크 검출 함수
+def has_watermark(text):
+    return WATERMARK_SIGNATURE in text
+
+# ✅ 워터마크 제거 함수
+def remove_watermark(text):
+    return text.replace(WATERMARK_SIGNATURE, '')
+
+----------------------------------------
+
+3. 사용 예시
+
+original = "이 문장은 GPT가 생성했습니다."
+marked = add_watermark(original)
+
+print("워터마크 포함:", repr(marked))  # 실제 출력 보면 보이지 않는 유니코드가 있음
+print("AI 생성 여부:", has_watermark(marked))  # True
+print("워터마크 제거:", remove_watermark(marked))  # 원래 문장
+
+------------------------------------------
+실제 응용: Flask 또는 텍스트 생성기 통합 예시
+
+@app.route('/check', methods=['POST'])
+def check_text():
+    text = request.form['content']
+    if has_watermark(text):
+        return "✅ 이 콘텐츠는 GPT 또는 AI가 생성한 것으로 식별됩니다."
+    else:
+        return "❌ 워터마크가 없어, 사람이 작성한 콘텐츠일 가능성이 높습니다."
+
+
+
