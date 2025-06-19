@@ -1,0 +1,22 @@
+1. cryptography 모듈 설치:
+pip install cryptography flask
+
+2. 암호화 키 생성 (최초 1회만):
+from cryptography.fernet import Fernet
+print(Fernet.generate_key())
+
+>>>  출력된 키를 key = b'...' 부분에 복사하세요.
+
+3. 웹 브라우저에서 http://127.0.0.1:5000 으로 접속
+
+
+
+          기능 정리
+     기능	          설명
+사용자 로그인	   비밀번호(secure123) 기반 로그인
+콘텐츠 입력	     텍스트 폼을 통해 콘텐츠 입력
+AI 탐지          AI 키워드 포함 여부로 탐지
+워터마킹       	Zero-width 문자 삽입
+암호화          	Fernet으로 암호화
+복호화	          암호화된 콘텐츠의 원문 복원
+접근 제한	       비로그인 상태에서는 콘텐츠 사용 불가
