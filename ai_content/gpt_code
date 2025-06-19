@@ -1,0 +1,60 @@
+.txt, .docx, .pdf 등 제출받은 문서에서 보이지 않는 워터마크(예: \u200B\u200C\u200D)를 자동으로 감지하여,
+AI 생성물 여부를 판단하는 오프라인 감지기를 만드는 것입니다.
+
+
+코드 예시 (Python, docx, PyMuPDF 사용)
+
+import fitz  # PyMuPDF (pdf 파일용)
+import docx  # python-docx (docx 파일용)
+
+# 워터마크 시그니처
+WATERMARK_SIGNATURE = "\u200B\u200C\u200D"
+
+def extract_text_from_txt(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+def extract_text_from_docx(path):
+    doc = docx.Document(path)
+    return "\n".join([p.text for p in doc.paragraphs])
+
+def extract_text_from_pdf(path):
+    doc = fitz.open(path)
+    full_text = ''
+    for page in doc:
+        full_text += page.get_text()
+    return full_text
+
+def detect_watermark(text):
+    return WATERMARK_SIGNATURE in text
+
+def analyze_file(path):
+    if path.endswith('.txt'):
+        text = extract_text_from_txt(path)
+    elif path.endswith('.docx'):
+        text = extract_text_from_docx(path)
+    elif path.endswith('.pdf'):
+        text = extract_text_from_pdf(path)
+    else:
+        return "❌ 지원되지 않는 파일 형식입니다."
+
+    if detect_watermark(text):
+        return f"✅ AI 생성물로 의심됨 (워터마크 발견됨)\n파일: {path}"
+    else:
+        return f"✅ 사람이 작성했을 가능성 높음 (워터마크 없음)\n파일: {path}"
+
+-------------------------------
+
+사용 예시
+
+result = analyze_file("report.docx")
+print(result)
+
+------------------------
+
+
+필요한 패키지 설치
+
+pip install python-docx pymupdf
+
+--------------------------------
