@@ -1,0 +1,99 @@
+구성 요소	설명
+
+감정 인식 (카메라)   >>  얼굴 표정으로 감정 판단              
+Google STT API >>  **사람의 말을 문자로 변환**                  
+Edge TTS  >> 감정 스타일을 담은 음성 생성                
+최종 출력  >> "화가 나신 것 같아요. '무슨 일이야!' 라고 말씀하셨어요." 등등
+
+--------------------------------------------------------
+Code
+  
+import tensorflow.keras
+import numpy as np
+import cv2
+import speech_recognition as sr
+import asyncio
+import edge_tts
+import time
+import playsound
+
+# ----- 감정 라벨 불러오기 -----
+with open("labels.txt", "r", encoding="utf-8") as f:
+    classes = [line.strip().split(' ')[1] for line in f.readlines()]
+
+# ----- 감정 → 문장 + 스타일 매핑 -----
+def generate_response(emotion, user_text):
+    if emotion == "기쁨":
+        return f"웃는 모습이 보기 좋아요! '{user_text}' 라고 말씀하셨군요.", "cheerful"
+    elif emotion == "화남":
+        return f"조금 불편하신 것 같네요. '{user_text}' 라고 하셨죠?", "angry"
+    elif emotion == "억울":
+        return f"억울한 일이 있었군요. '{user_text}' 기억할게요.", "sad"
+    elif emotion == "무표정":
+        return f"조용한 분위기네요. '{user_text}' 라고 말씀하셨어요.", "calm"
+    else:
+        return f"'{user_text}' 라고 말씀하셨어요.", "default"
+
+# ----- 감정 음성 출력 -----
+async def speak(text, style, voice="ko-KR-SunHiNeural"):
+    ssml = f"""
+    <speak version='1.0' xml:lang='ko-KR'>
+      <voice name='{voice}'>
+        <express-as style='{style}'>{text}</express-as>
+      </voice>
+    </speak>
+    """
+    communicate = edge_tts.Communicate(ssml, voice=voice)
+    await communicate.save("voice.mp3")
+    playsound.playsound("voice.mp3")
+
+# ----- 표정 분석 -----
+def detect_emotion_from_webcam(model):
+    cap = cv2.VideoCapture(0)
+    size = (224, 224)
+    ret, img = cap.read()
+    cap.release()
+    if not ret:
+        return None
+    img = img[:, 100:100+img.shape[0]]
+    img = cv2.flip(img, 1)
+    img_input = cv2.resize(img, size)
+    img_input = cv2.cvtColor(img_input, cv2.COLOR_BGR2RGB)
+    img_input = (img_input.astype(np.float32) / 127.0) - 1
+    img_input = np.expand_dims(img_input, axis=0)
+    prediction = model.predict(img_input)
+    idx = np.argmax(prediction)
+    return classes[idx]
+
+# ----- 음성 입력 (Google STT) -----
+def get_user_speech():
+    recognizer = sr.Recognizer()
+    mic = sr.Microphone()
+    with mic as source:
+        print("🎤 말을 해보세요...")
+        recognizer.adjust_for_ambient_noise(source)
+        audio = recognizer.listen(source)
+    try:
+        print("📝 음성 텍스트로 변환 중...")
+        return recognizer.recognize_google(audio, language='ko-KR')
+    except Exception as e:
+        print("음성 인식 실패:", e)
+        return ""
+
+# ----- 메인 실행 -----
+if __name__ == "__main__":
+    print("모델 로딩 중...")
+    model = tensorflow.keras.models.load_model("keras_model.h5")
+
+    while True:
+        print("\n▶ 표정 및 음성 입력을 시작합니다. (중지하려면 Ctrl+C)")
+        emotion = detect_emotion_from_webcam(model)
+        print("😊 인식된 표정 감정:", emotion)
+
+        user_text = get_user_speech()
+        print("🗣️ 인식된 말:", user_text)
+
+        if emotion and user_text:
+            reply_text, style = generate_response(emotion, user_text)
+            print(f"📢 응답: {reply_text} ({style})")
+            asyncio.run(speak(reply_text, style))
