@@ -1,13 +1,17 @@
 구성 요소	설명
 
-감정 인식 (카메라)   >>  얼굴 표정으로 감정 판단              
-Google STT API >>  **사람의 말을 문자로 변환**                  
-Edge TTS  >> 감정 스타일을 담은 음성 생성                
-최종 출력  >> "화가 나신 것 같아요. '무슨 일이야!' 라고 말씀하셨어요." 등등
-
+기능	상태
+✅ 얼굴 표정 인식 (기쁨, 화남 등)	
+✅ Google STT로 사용자의 말 인식	
+✅ 감정 + 말 → 공감형 문장 생성	
+✅ Edge-TTS로 감정이 담긴 음성 출력	
+✅ 중복 응답 방지 / 에러 처리	
+✅ "종료", "그만" 말하면 종료	
+✅ 음성 재생 후 mp3 자동 삭제
 --------------------------------------------------------
-Code
-  
+
+파일명 : face_voice_emotion_ai.py
+
 import tensorflow.keras
 import numpy as np
 import cv2
@@ -16,6 +20,7 @@ import asyncio
 import edge_tts
 import time
 import playsound
+import os
 
 # ----- 감정 라벨 불러오기 -----
 with open("labels.txt", "r", encoding="utf-8") as f:
@@ -45,7 +50,13 @@ async def speak(text, style, voice="ko-KR-SunHiNeural"):
     """
     communicate = edge_tts.Communicate(ssml, voice=voice)
     await communicate.save("voice.mp3")
-    playsound.playsound("voice.mp3")
+    try:
+        playsound.playsound("voice.mp3")
+    except Exception as e:
+        print("음성 재생 오류:", e)
+    finally:
+        if os.path.exists("voice.mp3"):
+            os.remove("voice.mp3")
 
 # ----- 표정 분석 -----
 def detect_emotion_from_webcam(model):
@@ -82,18 +93,28 @@ def get_user_speech():
 
 # ----- 메인 실행 -----
 if __name__ == "__main__":
-    print("모델 로딩 중...")
+    print("🤖 모델 로딩 중...")
     model = tensorflow.keras.models.load_model("keras_model.h5")
 
     while True:
-        print("\n▶ 표정 및 음성 입력을 시작합니다. (중지하려면 Ctrl+C)")
+        print("\n▶ 표정 및 음성 입력을 시작합니다. (종료하려면 '종료' 또는 '그만' 말하기)")
         emotion = detect_emotion_from_webcam(model)
-        print("😊 인식된 표정 감정:", emotion)
+        if not emotion:
+            print("❌ 얼굴 인식 실패. 다시 시도합니다.")
+            continue
+        print("😊 인식된 감정:", emotion)
 
         user_text = get_user_speech()
+        if not user_text.strip():
+            print("❌ 음성 인식 실패. 다시 시도합니다.")
+            continue
+
         print("🗣️ 인식된 말:", user_text)
 
-        if emotion and user_text:
-            reply_text, style = generate_response(emotion, user_text)
-            print(f"📢 응답: {reply_text} ({style})")
-            asyncio.run(speak(reply_text, style))
+        if "종료" in user_text or "그만" in user_text:
+            print("👋 대화를 종료합니다.")
+            break
+
+        reply_text, style = generate_response(emotion, user_text)
+        print(f"📢 AI 응답: {reply_text} ({style})")
+        asyncio.run(speak(reply_text, style))
