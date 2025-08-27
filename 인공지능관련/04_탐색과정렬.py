@@ -1,180 +1,246 @@
-4단원 탐색과 정렬
+탐색과 정렬
 
-[기본1] 순차 탐색(선형 탐색)
 
-풀이 요약: 왼쪽부터 하나씩 비교해서 찾으면 위치 반환, 못 찾으면 -1.
-
+[기본1] 순차 탐색 (Linear Search)
 def search_list(a, x):
-    """리스트 a에서 값 x의 위치를 왼쪽부터 찾는다. 없으면 -1."""
-    for i, v in enumerate(a):
-        if v == x:           # 같으면 위치 반환
-            return i
-    return -1                # 끝까지 못 찾으면 -1
+    """
+    리스트 a 안에서 값 x를 앞에서부터 하나씩 차례대로 찾는 함수
+    - 찾으면 그 위치(인덱스)를 돌려줌
+    - 끝까지 못 찾으면 -1을 돌려줌
+    """
+    n = len(a)   # 리스트 크기
+    for i in range(n):   # 0번부터 n-1번까지 차례로
+        if x == a[i]:    # 만약 찾는 값과 같다면
+            return i     # 그 위치를 바로 돌려줌
+    return -1            # 끝까지 못 찾았다면 -1
 
-# 검토
+# 예시
 v = [17, 92, 18, 33, 58, 7, 33, 42]
-print(search_list(v, 33))  # 3 (처음 등장 위치)
-print(search_list(v, 999)) # -1
-# ✅ 찾기/실패 동작 확인
+print(search_list(v, 18))   # 2 (세 번째 위치)
+print(search_list(v, 33))   # 3 (처음 등장한 위치)
+print(search_list(v, 900))  # -1 (없음)
 
-[기본2] 선택 정렬
 
-풀이 요약: 남은 구간에서 최솟값을 찾아 맨 앞과 교환.
+👉 포인트: 차례대로 비교 → 간단하지만 오래 걸릴 수 있음 (O(n))
 
+--------------------------------------------------------------
+
+[보충] 순차 탐색 (모든 위치 찾기)
+def search_list_all(a, x):
+    """
+    리스트 안에서 값 x가 있는 모든 위치를 찾아 돌려줌
+    """
+    result = []
+    for i in range(len(a)):
+        if a[i] == x:
+            result.append(i)
+    return result
+
+print(search_list_all(v, 33))  # [3, 6] (33은 두 번 나옴)
+
+
+--------------------------------------------------------------
+
+
+[기본2] 선택 정렬 (Selection Sort)
+(1) 설명용 – 최소값을 하나씩 꺼내 새 리스트에 저장
+def sel_sort_explain(a):
+    """
+    설명용 선택정렬:
+    - 남은 값 중에서 가장 작은 값을 뽑아 새로운 리스트에 추가
+    """
+    result = []
+    while a:  # a가 빌 때까지 반복
+        min_value = min(a)     # 가장 작은 값 찾기
+        a.remove(min_value)    # 원래 리스트에서 제거
+        result.append(min_value) # 결과 리스트에 추가
+    return result
+
+d = [2, 4, 5, 1, 3]
+print(sel_sort_explain(d[:]))   # [1,2,3,4,5]
+
+(2) 일반 선택 정렬 – 리스트 안에서 직접 교환
 def sel_sort(a):
-    """선택 정렬: 매 단계 최솟값을 앞으로."""
-    a = a[:]                 # 원본 보호
+    """
+    일반 선택정렬:
+    - 매번 남은 구간에서 가장 작은 값을 앞으로 보내기
+    """
     n = len(a)
-    for i in range(n-1):
+    for i in range(n-1):      # 0부터 n-2까지
         min_idx = i
-        for j in range(i+1, n):
+        for j in range(i+1, n):   # i 뒤쪽 탐색
             if a[j] < a[min_idx]:
                 min_idx = j
-        a[i], a[min_idx] = a[min_idx], a[i]
+        a[i], a[min_idx] = a[min_idx], a[i]  # 값 교환
     return a
 
-# 검토
-print(sel_sort([2,4,5,1,3]))          # [1,2,3,4,5]
-# ✅ 오름차순 정렬 확인
+d = [2, 4, 5, 1, 3]
+print(sel_sort(d[:]))  # [1,2,3,4,5]
 
-[기본3] 삽입 정렬
+--------------------------------------------------------------
 
-풀이 요약: 이미 정렬된 왼쪽 구간에 현재 값을 알맞은 자리에 끼워 넣기.
 
+[기본3] 삽입 정렬 (Insertion Sort)
+(1) 설명용 – 적당한 위치 찾아 끼워 넣기
+def ins_sort_explain(a):
+    """
+    설명용 삽입정렬:
+    - 꺼낸 값을 적당한 자리에 끼워 넣기
+    """
+    result = []
+    while a:
+        value = a.pop(0)   # 맨 앞 값 꺼내기
+        # result에서 적당한 위치를 찾아 끼워 넣음
+        ins_idx = 0
+        while ins_idx < len(result) and result[ins_idx] < value:
+            ins_idx += 1
+        result.insert(ins_idx, value)
+    return result
+
+d = [2,4,5,1,3]
+print(ins_sort_explain(d[:]))  # [1,2,3,4,5]
+
+(2) 일반 삽입 정렬
 def ins_sort(a):
-    """삽입 정렬: 왼쪽 정렬구간에 삽입."""
-    a = a[:]
-    for i in range(1, len(a)):
-        key = a[i]
-        j = i - 1
+    """
+    일반 삽입정렬:
+    - 이미 정렬된 부분에 새로운 수를 적당히 끼워 넣음
+    """
+    n = len(a)
+    for i in range(1, n):
+        key = a[i]   # 끼워 넣을 값
+        j = i-1
         while j >= 0 and a[j] > key:
-            a[j+1] = a[j]   # 오른쪽으로 밀기
+            a[j+1] = a[j]  # 오른쪽으로 한 칸 밀기
             j -= 1
-        a[j+1] = key
+        a[j+1] = key       # 빈 자리에 삽입
     return a
 
-# 검토
-print(ins_sort([2,4,5,1,3]))          # [1,2,3,4,5]
-# ✅ 동작 확인
+d = [2,4,5,1,3]
+print(ins_sort(d[:]))  # [1,2,3,4,5]
 
-[기본4] 병합 정렬(분할정복)
+--------------------------------------------------------------
 
-풀이 요약: 반으로 쪼개 재귀 정렬 → 두 정렬리스트 병합.
 
-def merge_sort(a):
-    """병합 정렬: 분할→정복→병합."""
-    if len(a) <= 1:
-        return a[:]
-    mid = len(a)//2
-    left = merge_sort(a[:mid])
-    right = merge_sort(a[mid:])
-    # 병합
-    i = j = 0
-    res = []
-    while i < len(left) and j < len(right):
-        if left[i] <= right[j]:
-            res.append(left[i]); i += 1
+[기본4] 병합 정렬 (Merge Sort)
+(1) 설명용 – 반씩 나눠서 합치기
+def merge_sort_simple(a):
+    """
+    설명용 병합정렬:
+    - 리스트를 반씩 나누어 정렬한 뒤 다시 합침
+    """
+    n = len(a)
+    if n <= 1:
+        return a
+    mid = n//2
+    g1 = merge_sort_simple(a[:mid])   # 앞쪽 절반
+    g2 = merge_sort_simple(a[mid:])   # 뒤쪽 절반
+
+    result = []
+    while g1 and g2:
+        if g1[0] < g2[0]:
+            result.append(g1.pop(0))
         else:
-            res.append(right[j]); j += 1
-    res.extend(left[i:]); res.extend(right[j:])
-    return res
+            result.append(g2.pop(0))
+    result.extend(g1)
+    result.extend(g2)
+    return result
 
-# 검토
-print(merge_sort([6,8,3,9,10,1,2,4,7,5]))  # 1~10
-# ✅ 정렬 완료 확인
+d = [6,8,3,9,10,1,2,4,7,5]
+print(merge_sort_simple(d))  # [1,2,3,4,5,6,7,8,9,10]
 
-[기본5] 퀵 정렬
+(2) 일반 병합 정렬 – 제자리 덮어쓰기
+def merge_sort(a):
+    """
+    일반 병합정렬:
+    - 리스트를 제자리에서 정렬
+    """
+    n = len(a)
+    if n <= 1: return
+    mid = n//2
+    g1 = a[:mid]
+    g2 = a[mid:]
+    merge_sort(g1)
+    merge_sort(g2)
 
-풀이 요약: 피벗 기준으로 작/크 그룹 분할 → 재귀 정렬.
+    i1 = i2 = ia = 0
+    while i1 < len(g1) and i2 < len(g2):
+        if g1[i1] < g2[i2]:
+            a[ia] = g1[i1]; i1+=1
+        else:
+            a[ia] = g2[i2]; i2+=1
+        ia+=1
+    while i1 < len(g1):
+        a[ia] = g1[i1]; i1+=1; ia+=1
+    while i2 < len(g2):
+        a[ia] = g2[i2]; i2+=1; ia+=1
+
+d = [6,8,3,9,10,1,2,4,7,5]
+merge_sort(d)
+print(d)  # [1,2,3,4,5,6,7,8,9,10]
+
+--------------------------------------------------------------
+
+
+[기본5] 퀵 정렬 (Quick Sort)
+(1) 설명용 – 피벗 기준으로 나눠 이어붙이기
+def quick_sort_simple(a):
+    """
+    설명용 퀵정렬:
+    - 리스트를 피벗 기준으로 작/큰 그룹으로 나눈 뒤 재귀 정렬
+    """
+    n = len(a)
+    if n <= 1:
+        return a
+    pivot = a[-1]      # 편의상 마지막 값을 피벗으로
+    g1 = [x for x in a[:-1] if x < pivot]
+    g2 = [x for x in a[:-1] if x >= pivot]
+    return quick_sort_simple(g1) + [pivot] + quick_sort_simple(g2)
+
+d = [6,8,3,9,10,1,2,4,7,5]
+print(quick_sort_simple(d))  # [1,2,3,4,5,6,7,8,9,10]
+
+(2) 일반 퀵 정렬 – 제자리 교환
+def quick_sort_sub(a, start, end):
+    if end - start <= 0: return
+    pivot = a[end]
+    i = start
+    for j in range(start, end):
+        if a[j] < pivot:
+            a[i], a[j] = a[j], a[i]
+            i+=1
+    a[i], a[end] = a[end], a[i]
+    quick_sort_sub(a, start, i-1)
+    quick_sort_sub(a, i+1, end)
 
 def quick_sort(a):
-    """퀵 정렬: 피벗 기준 분할."""
-    if len(a) <= 1:
-        return a[:]
-    pivot = a[-1]
-    left  = [x for x in a[:-1] if x < pivot]
-    right = [x for x in a[:-1] if x >= pivot]
-    return quick_sort(left) + [pivot] + quick_sort(right)
+    quick_sort_sub(a, 0, len(a)-1)
 
-# 검토
-print(quick_sort([6,8,3,9,10,1,2,4,7,5]))
-# ✅ 정렬 확인
+d = [6,8,3,9,10,1,2,4,7,5]
+quick_sort(d)
+print(d)  # [1,2,3,4,5,6,7,8,9,10]
 
-[기본6] 이진 탐색(정렬된 리스트)
+--------------------------------------------------------------
 
-풀이 요약: 중간값과 비교해 왼/오쪽 절반만 계속 탐색.
 
+[심화] 보충 문제들
+(1) 이진 탐색 (Binary Search, O(log n))
 def binary_search(a, x):
-    """오름차순 정렬된 a에서 x의 인덱스(없으면 -1)."""
-    l, r = 0, len(a)-1
-    while l <= r:
-        m = (l + r) // 2
-        if a[m] == x: return m
-        if a[m] < x:  l = m + 1
-        else:         r = m - 1
+    """
+    이진 탐색:
+    - 정렬된 리스트에서 중간값과 비교하며 범위를 반씩 줄여가기
+    """
+    start, end = 0, len(a)-1
+    while start <= end:
+        mid = (start+end)//2
+        if a[mid] == x:
+            return mid
+        elif a[mid] < x:
+            start = mid+1
+        else:
+            end = mid-1
     return -1
 
-# 검토
-arr = [1,3,5,7,9,11]
-print(binary_search(arr, 7))   # 3
-print(binary_search(arr, 2))   # -1
-# ✅ 동작 확인
-
-[기본7] 성적 순위 매기기
-
-풀이 요약: 내림차순 정렬 순위를 원래 순서에 매핑.
-※ 동점 처리 기준은 교재 정책 필요(확실하지 않음) — 아래에 두 방식 제공.
-
-def rank_competition(scores):
-    """경쟁 랭킹(1224식): 동점이면 같은 등수, 다음 등수는 건너뜀."""
-    sorted_scores = sorted(scores, reverse=True)
-    # 첫 등장 위치 +1을 등수로 사용
-    return [sorted_scores.index(x) + 1 for x in scores]
-
-def rank_dense(scores):
-    """밀집 랭킹(1223식): 동점이면 같은 등수, 다음 등수는 바로 이어짐."""
-    uniq = sorted(set(scores), reverse=True)
-    pos = {v:i+1 for i,v in enumerate(uniq)}
-    return [pos[x] for x in scores]
-
-# 검토
-scores = [100, 90, 90, 80]
-print(rank_competition(scores))  # [1,2,2,4]
-print(rank_dense(scores))        # [1,2,2,3]
-# ✅ 두 방식 비교 출력. (교재 기준에 맞춰 선택)
-
-[보충] 선택/삽입 정렬의 비교·교환 횟수 세기
-
-풀이 요약: 알고리즘 내부에서 카운터를 증가시켜 성능 감각 익히기.
-
-def sel_sort_stats(a):
-    a = a[:]; comp = swap = 0
-    n = len(a)
-    for i in range(n-1):
-        min_idx = i
-        for j in range(i+1, n):
-            comp += 1
-            if a[j] < a[min_idx]:
-                min_idx = j
-        if min_idx != i:
-            a[i], a[min_idx] = a[min_idx], a[i]; swap += 1
-    return a, comp, swap
-
-def ins_sort_stats(a):
-    a = a[:]; comp = swap = 0
-    for i in range(1, len(a)):
-        key = a[i]; j = i-1
-        while j >= 0:
-            comp += 1
-            if a[j] > key:
-                a[j+1] = a[j]; swap += 1; j -= 1
-            else:
-                break
-        a[j+1] = key
-    return a, comp, swap
-
-# 검토
-d = [5,4,3,2,1]
-print(sel_sort_stats(d))  # (정렬된 리스트, 비교 수, 교환 수)
-print(ins_sort_stats(d))
-# ✅ 비교/교환 횟수 출력 확인
+d = [1,2,3,4,5,6,7,8,9,10]
+print(binary_search(d, 7))  # 6
+print(binary_search(d, 99)) # -1
