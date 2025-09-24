@@ -1,0 +1,7 @@
+구현 단계 체크리스트
+
+차량(각각): car_peripheral.py 올리고 CAR_ID를 고유값으로 설정 후 실행 → 광고(예: CAR-CAR01) 보이는지 확인.
+
+라즈베리파이: pip install bleak → central_sender.py 실행 → 차량 목록에 연결되는지 확인.
+
+테스트: 라즈베리파이에서 시퀀스 번호 전송 → 차량은 ACK notify로 응답 → 라즈베리파이 acked 딕셔너리에 차량 ID/응답이 쌓임 → 몇대가 받았는지 알 수 있음.
