@@ -1,85 +1,92 @@
-# 라즈베리파이는 Bleak(Python BLE client 라이브러리)를 사용해서 다음 동작을 합니다:
-# 스캔 → 차량 장치들 찾기(예: advertising name prefix CAR-)
-# 각 차량에 연결 → ACK notify 구독(콜백 등록)
-# 모든 연결된 장치에 대해 CMD 쓰기(시퀀스 bytes)
-# 특정 시간(타임아웃) 동안 ACK 콜백 카운트 → 받은 ACK 목록을 리포트
+# 중앙(라즈베리파이, Bleak 사용) — 쓰기(시퀀스+시간) + ACK 수집
 
-# 코드 안의  main()은 스캔 → 발견된 모든 CAR- 장치에 연결 → notify 구독 → CMD에 시퀀스 쓰고 2초 기다려 ACK 수집 → 종료합니다.
-# 여러 차량이 있으면 병렬로 연결/통신이 가능하나, 환경에 따라 동시 연결 개수/성능을 조정해야 합니다.
+# payload에 SEQ와 T 값을 넣어 보낸다.
+# notification_handler에서 들어오는 ACK들을 acked에 저장 → 중앙이 몇 대가 응답했는지 확인.
 
+# 1. 시스템 업데이트
+# sudo apt update
+# sudo apt upgrade -y
 
-# ****  먼저 Bleak 설치:
-# pip install bleak
+# 2. Python 버전 확인
+# Bleak는 Python 3.8 이상 권장입니다.
+# python3 --version
 
-# central_sender.py  (on Raspberry Pi)
+# 3. Bluetooth(BlueZ) 서비스·종속성 확인/설치 (라즈베리파이/라즈비안인 경우)
+# sudo apt install -y bluetooth bluez bluez-tools
+# # (일반적으로 기본적으로 설치되어 있는 경우가 많음)
+# # Bluetooth 서비스 시작/확인
+# sudo systemctl enable --now bluetooth
+# systemctl status bluetooth
+
+# 4. Bleak 설치
+# 일반 전역 설치 (권한 필요):
+# sudo python3 -m pip install bleak    
+
+# 5. 설치 확인
+# python3 -c "import bleak; print('bleak ok', bleak.__version__)"
+
+----------------------------------------------------------------
+
+# central_sender_with_time.py (Linux / Raspberry Pi with Bleak)
 import asyncio
 from bleak import BleakScanner, BleakClient
+import time
 
-# UUIDs must match vehicle code
-SERVICE_UUID = "12345678-1234-5678-1234-56789abcdef0"
-CMD_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef1"
-ACK_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef2"
+CMD_CHAR = "12345678-1234-5678-1234-56789abcdef1"
+ACK_CHAR = "12345678-1234-5678-1234-56789abcdef2"
+TARGET_PREFIX = "CAR-"
 
-TARGET_PREFIX = "CAR-"   # advertising name prefix
+acked = {}   # addr -> ack_payload string
 
-acked = {}   # device_addr -> ack_payload
-
-def notification_handler(device_addr):
-    def _handler(sender: int, data: bytearray):
-        # data is bytes like b"CAR01:123"
-        s = data.decode()
-        print(f"ACK from {device_addr}: {s}")
-        acked[device_addr] = s
-    return _handler
+def make_notif_handler(addr):
+    def handler(sender, data: bytearray):
+        s = data.decode(errors='ignore')
+        print(f"ACK recv from {addr}: {s}")
+        acked[addr] = s
+    return handler
 
 async def main():
-    print("Scanning for vehicles...")
     devices = await BleakScanner.discover(timeout=3.0)
     targets = [d for d in devices if d.name and d.name.startswith(TARGET_PREFIX)]
     if not targets:
-        print("No vehicles found.")
+        print("No targets")
         return
-
-    print("Found targets:", [ (d.address, d.name) for d in targets ])
 
     clients = []
     try:
-        # connect to all targets (could limit number)
         for d in targets:
             client = BleakClient(d.address)
             await client.connect()
-            print("Connected to", d.address)
-            # subscribe to ACK notify
-            await client.start_notify(ACK_CHAR_UUID, notification_handler(d.address))
+            print("Connected:", d.address, d.name)
+            await client.start_notify(ACK_CHAR, make_notif_handler(d.address))
             clients.append((client, d.address))
 
-        # send sequence to all connected vehicles
-        seq = 123  # 예시
-        seq_bytes = str(seq).encode()
-        print("Writing seq", seq)
+        # 보낼 데이터 준비
+        seq = 123
+        remain_sec = 30
+        payload = f"SEQ:{seq};T:{remain_sec}".encode()
+        print("Writing payload:", payload)
+        # 모두에게 쓰기
         for client, addr in clients:
             try:
-                await client.write_gatt_char(CMD_CHAR_UUID, seq_bytes, response=True)
+                await client.write_gatt_char(CMD_CHAR, payload, response=True)
                 print("Wrote to", addr)
             except Exception as e:
-                print("Write failed for", addr, e)
+                print("Write failed", addr, e)
 
-        # wait for ACKs with timeout (예: 2초)
+        # ACK 기다리기 (타임아웃)
         await asyncio.sleep(2.0)
 
-        # 결과 출력
-        print("ACKed devices:", acked)
+        print("ACKed:", acked)
         print("ACK count:", len(acked))
 
     finally:
-        # clean up
         for client, addr in clients:
             try:
-                await client.stop_notify(ACK_CHAR_UUID)
+                await client.stop_notify(ACK_CHAR)
             except:
                 pass
             await client.disconnect()
-        print("Done")
 
 if __name__ == "__main__":
     asyncio.run(main())
