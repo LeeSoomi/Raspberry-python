@@ -12,7 +12,14 @@
 # python3 --version
 
 # 3. Bluetooth(BlueZ) 서비스·종속성 확인/설치 (라즈베리파이/라즈비안인 경우)
-# sudo apt install -y bluetooth bluez bluez-tools
+# 
+# 시스템 패키지(블루투스/빌드 의존성)
+# sudo apt install -y bluetooth bluez libbluetooth-dev libdbus-1-dev
+
+# python 패키지
+sudo apt install -y python3-pip
+pip3 install --user bleak
+
 # # (일반적으로 기본적으로 설치되어 있는 경우가 많음)
 # # Bluetooth 서비스 시작/확인
 # sudo systemctl enable --now bluetooth
