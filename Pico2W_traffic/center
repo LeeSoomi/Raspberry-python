@@ -1,38 +1,12 @@
 # scan_test_safe.py
 
-1. 기본 패키지 업데이트 및 의존성 설치
-    sudo apt update && sudo apt upgrade -y
-    sudo apt install -y python3-pip bluetooth bluez bluez-tools libbluetooth-dev
+# 처음부터 권장 순서
+sudo apt update
+sudo apt install python3-venv -y
 
-2. bleak 설치 (Python용 BLE 통신 라이브러리)
-    최신 버전 설치
-    pip3 install bleak
-    
-    
-    설치 확인:
-    python3 -c "import bleak; print(bleak.__version__)"
+# 가상환경 생성 및 진입
+python3 -m venv bleenv
+source bleenv/bin/activate
 
-3. bleak 사용을 위한 DBus 권한 설정 (필요 시)
-    일부 환경에서는 BLE 스캔 시 org.bluez.Error.InProgress 오류가 발생할 수 있습니다.
-    이 경우, 다음과 같이 DBus 접근 권한을 부여합니다:
-
-    sudo nano /etc/dbus-1/system.d/bluetooth.conf
-    <policy user="pi"> 또는 <policy user="sm"> 항목 안에 다음 줄이 있는지 확인하고, 없다면 추가:
-
-  <allow send_destination="org.bluez"/>
-
-    수정 후 저장하고 DBus와 Bluetooth 다시 시작:
-    sudo systemctl restart bluetooth
-
-4. Python 환경 확인
-    python3 --version
-    pip3 --version
-
-5. Bluetooth 서비스 상태 확인
-    systemctl status bluetooth
-
-    Active (running) 상태여야 합니다. 
-    아니라면:
-
-    sudo systemctl start bluetooth
-    sudo systemctl enable bluetooth
+# 설치
+pip install bleak
