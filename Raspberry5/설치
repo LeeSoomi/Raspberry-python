@@ -1,0 +1,55 @@
+한글 설치
+1. 패키지 설치
+
+sudo apt update
+sudo apt install -y ibus ibus-hangul fonts-nanum fonts-noto-cjk
+# fonts-unfonts-core도 가능하지만, Nanum 계열을 기본 권장합니다.
+
+2. 로케일(한국어) 생성
+
+sudo dpkg-reconfigure locales
+
+
+#목록에서 ko_KR.UTF-8 체크 → 기본(locale)로 선택
+#(GUI라면: Raspberry Pi Settings → Localization → Locale에서 Korean 추가)
+
+3. 입력기(IBus) 시스템 기본으로 지정
+im-config -n ibus
+
+#적용을 위해 로그아웃/로그인 또는 재부팅 필요
+
+4. IBus에 한글 엔진 추가
+ibus-setup
+
+5. 재부팅
+sudo reboot
+
+
+------------------------------------
+
+VSCODE  설치
+
+✅ VS Code 설치 방법 (공식 저장소 이용)
+
+라즈베리파이 5에서는 공식 Microsoft 저장소를 통한 설치가 가장 안정적입니다.
+🔧 1단계. 시스템 업데이트
+sudo apt update && sudo apt upgrade -y
+
+🔧 2단계. Microsoft GPG 키 및 저장소 추가
+sudo apt install wget gpg -y
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+sudo install -o root -g root -m 644 packages.microsoft.gpg /usr/share/keyrings/
+
+🔧 3단계. APT 저장소 등록
+echo "deb [arch=arm64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list
+
+🔧 4단계. VS Code 설치
+sudo apt update
+sudo apt install code -y
+
+설치가 완료되면 code 명령으로 실행 가능
+
+✅ 5단계. 실행 확인
+code
+
+GUI 환경에서는 창이 열리며, CLI에서는 텍스트 기반 명령어로 사용 가능
