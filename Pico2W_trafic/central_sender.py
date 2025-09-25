@@ -109,3 +109,30 @@ async def main():
 asyncio.run(main())
 PY
 
+
+-------------------------
+
+
+# 1) pip list / bleak 위치
+python3 -m pip show bleak
+python3 -m pip list | grep bleak
+
+# 2) 파이썬으로 import 테스트 (실행 결과 전체 복사)
+python3 - <<'PY'
+try:
+    import bleak
+    print("bleak ok:", bleak.__version__)
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+PY
+
+# 3) 블루투스 어댑터/권한 상태
+hciconfig -a
+rfkill list
+sudo systemctl status bluetooth --no-pager
+
+# 4) /var/log/syslog 또는 블루투스 저널에서 오류
+sudo journalctl -u bluetooth -n 200 --no-pager
+
+
