@@ -11,3 +11,136 @@ SEQ = 시퀀스 번호(예: 123)
 
 T = 남은 시간(초, 또는 ms 등 원하는 단위)
 문자열이 디버깅/테스트에 훨씬 편합니다.
+
+
+
+1) OS / 초기 준비 (권장)
+
+Raspberry Pi OS (32-bit) 최신 안정판 권장. (Raspberry Pi Imager로 설치)
+
+설치 후 터미널 열고 업데이트:
+
+sudo apt update
+sudo apt full-upgrade -y
+sudo reboot
+
+2) BlueZ / Bluetooth 기본 패키지 설치
+sudo apt install -y bluetooth bluez bluez-tools
+sudo systemctl enable --now bluetooth
+
+
+어댑터 상태 확인:
+
+sudo bluetoothctl show
+
+3) Python 환경 (권장: virtualenv)
+sudo apt install -y python3-venv python3-pip
+python3 -m venv ~/ble-env
+source ~/ble-env/bin/activate
+pip install --upgrade pip
+
+4) Bleak (중앙 기기용) 설치
+pip install bleak
+
+
+참고: Bleak의 API는 버전에 따라 달라져서, 기존 코드(예: register_detection_callback 호출)는 최신 bleak에서 동작하지 않을 수 있습니다. 아래에 호환되는 예제 코드를 함께 드립니다.
+
+5) 블루투스 충돌(=이미 스캔중) 방지
+
+Operation already in progress 오류는 다른 프로세스가 이미 discovery/scan을 잡고 있을 때 발생합니다. 재부팅 후에 새로 실행하거나, 아래로 기존 스캔을 끄세요.
+
+실행중인 파이썬/스캔 프로세스 확인:
+
+ps aux | grep -E "python|bleak" | grep -v grep
+pgrep -a python3
+
+
+발견된 PID만 안전하게 종료 (예: PID=12345):
+
+kill 12345
+# 그래도 안꺼지면 (최후수단)
+kill -9 12345
+
+
+bluetoothctl에서 스캔 끄기
+
+sudo bluetoothctl
+[bluetooth]# scan off
+[bluetooth]# exit
+
+
+블루투스 서비스 재시작(필요하면)
+
+sudo systemctl restart bluetooth
+
+6) 간단한 스캔 테스트 코드 (Bleak 최신 API 기준)
+
+scan_test.py 로 저장하고 실행해 보세요.
+
+# scan_test.py
+import asyncio
+from bleak import BleakScanner
+
+def detection_callback(device, advertisement_data):
+    # device.address, device.name, device.rssi, advertisement_data.service_data 등 사용 가능
+    print(device.address, device.name, device.rssi, advertisement_data)
+
+async def run():
+    scanner = BleakScanner(detection_callback=detection_callback)
+    await scanner.start()
+    await asyncio.sleep(5.0)    # 5초 스캔
+    await scanner.stop()
+
+if __name__ == "__main__":
+    asyncio.run(run())
+
+
+실행:
+
+source ~/ble-env/bin/activate
+python3 scan_test.py
+
+
+출력에서 Pico (예: CAR-CAR01 또는 광고에 넣은 이름) 가 보이면 성공입니다.
+
+또는 간단한 discover:
+
+# discover.py
+import asyncio
+from bleak import BleakScanner
+
+async def main():
+    devices = await BleakScanner.discover(timeout=5.0)
+    for d in devices:
+        print(d)
+
+asyncio.run(main())
+
+7) Peripheral(광고) 장치(Pico) 확인할 것
+
+피코에서 ble.gap_advertise(…) 또는 ble.gap_scan(...) 코드를 제대로 실행(멈추지 않고 광고중) 상태인지 확인.
+
+스마트폰(nRF Connect)에서 광고가 보이는지(예: S:123 등).
+
+광고는 일방향: 센트럴(라즈베리파이)이 누가 이 광고를 '받았는지(heard by)'를 자동으로 알 수는 없습니다. 중앙에서 몇 대가 받았는지 알려면 차측(피코)들이 중앙에 응답(예: 중앙에 연결/notify)하도록 만들어야 합니다.
+
+8) 자주 발생하는 문제와 해결
+
+BleakScanner object has no attribute 'register_detection_callback'
+→ 코드가 옛날 API를 쓰는 경우입니다. 위의 detection_callback을 BleakScanner 생성자에 넣어 사용하세요.
+
+Operation already in progress
+→ 다른 스캔(예: bluetoothctl scan on, GUI 앱, 이전 파이썬 프로세스)이 discovery를 잡고 있음. scan off 또는 해당 프로세스 종료 / systemctl restart bluetooth.
+
+No targets (중앙 스크립트에서)
+→ 스캔 전용 장치(혹은 광고하는 피코)가 실행 중인지 확인. nRF Connect로 광고가 보인다면 Bleak 스캔 코드로도 잡혀야 함.
+
+9) 테스트 순서 (권장)
+
+피코(자동차) 하나 켜서 광고 시작(Advertising as b'CAR-CAR01' 메시지 확인).
+
+스마트폰(nRF Connect)에서 광고 확인(완료).
+
+라즈베리파이에서 scan_test.py 실행 → 피코 주소/이름 보이는지 확인.
+
+여러 대로 확장: 각 피코가 서로 다른 광고 이름(예: CAR-01, CAR-02)을 가지도록. 중앙에서 스캔 시 발견되는 고유 주소/이름을 카운트.
