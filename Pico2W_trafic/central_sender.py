@@ -90,3 +90,22 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+
+------------------------------
+
+# 가상환경 활성화 되어 있는 상태에서
+python - <<'PY'
+import asyncio
+from bleak import BleakScanner
+
+async def main():
+    devices = await BleakScanner.discover(timeout=3.0)
+    print("found", len(devices), "devices")
+    for d in devices:
+        print(d)
+
+asyncio.run(main())
+PY
+
