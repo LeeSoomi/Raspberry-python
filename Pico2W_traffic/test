@@ -1,0 +1,19 @@
+cat > adv_countdown.sh <<'SH'
+#!/usr/bin/env bash
+IF=${1:-hci0}     # 기본 hci0
+SEC=${2:-20}      # 기본 20초
+DIR=${3:-A}       # 기본 방향 A
+while [ $SEC -ge 0 ]; do
+  NAME="S:${SEC}|D:${DIR}|Q:1"
+  # 한 번의 Legacy Non-connectable 광고(약 280ms)
+  sudo btmgmt -i "$IF" add-adv -d -n "$NAME" >/dev/null
+  sleep 0.28
+  sudo btmgmt -i "$IF" rm-adv 0 >/dev/null 2>&1
+  sleep 0.02
+  SEC=$((SEC-1))
+done
+SH
+chmod +x adv_countdown.sh
+
+사용 예:
+./adv_countdown.sh hci0 20 A
