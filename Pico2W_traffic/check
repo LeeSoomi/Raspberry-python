@@ -1,0 +1,34 @@
+라즈베리파이 설치 
+# 처음부터 권장 순서
+sudo apt update
+sudo apt install python3-venv -y
+
+# 가상환경 생성 및 진입
+python3 -m venv bleenv
+source bleenv/bin/activate
+
+# 설치
+pip install bleak
+
+# 재진입시에는 항상 가상환경 활성화
+source bleenv/bin/activate
+python3 central_push_and_count.py(파일명)
+
+
+
+■ 실행 순서 체크리스트
+
+차량(Pico W) 에 car_gatt_receiver.py 업로드 → 실행 → “Advertising(connectable)” 확인
+
+중앙(라즈베리파이) 에서 가상환경 활성화:
+source bleenv/bin/activate
+python3 central_push_and_count.py
+
+
+콘솔에
+Found N car(s)
+[SEQ 1] push secs=20
+ACK X/N received
+…
+같이 뜨면 정상.
+
