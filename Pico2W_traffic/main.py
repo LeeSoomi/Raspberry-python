@@ -21,6 +21,8 @@ SCAN_KICK_MS = 10_000        # 스캔 재시작 주기(안전장치)
 ble = BLE()
 ble.active(True)
 LED = Pin("LED", Pin.OUT)
+BEACON_PERIOD_S = 2
+last_beacon_s = 0
 
 remain = None          # 남은 초 (수신 시 갱신)
 last_rx_ms = time.ticks_ms()
@@ -157,3 +159,9 @@ while True:
         # 수신 끊김 표시: 느린 깜빡이
         remain = None
         led_blink(60, 440)
+        # 대기 비콘: BEACON_PERIOD_S 주기로 한 번 ACK 송출
+        ns = time.time()
+        if ns - last_beacon_s >= BEACON_PERIOD_S:
+            last_beacon_s = ns
+            # 마지막 방향 정보가 없으면 '?' 전송
+            send_ack_once(cur_dir)
