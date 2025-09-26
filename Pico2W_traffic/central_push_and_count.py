@@ -92,7 +92,8 @@ def extract_ack_uid_and_dir(raw: bytes):
                 return uid3.hex(), direction
     return None
 
-async def scan_once(window_sec: int) -> int:
+async def scan_once(adapter: str, window_sec: int):
+
     """window_sec 동안 스캔하고 ACK 보낸 피코(고유 uid3) 수 반환"""
     seen = set()
 
@@ -116,7 +117,8 @@ async def scan_once(window_sec: int) -> int:
                 uid_hex, _ = found
                 seen.add(uid_hex)
 
-    scanner = BleakScanner(detection_callback=cb)
+    scanner = BleakScanner(detection_callback=cb, adapter=adapter)
+
     try:
         await scanner.start()
         await asyncio.sleep(window_sec)
@@ -143,7 +145,8 @@ async def main(adapter: str, direction: str, window: int):
 
     while True:
         # 1) 대기-스캔 단계: 몇 대가 있는지 집계
-        cnt = await scan_once(window)
+        cnt = await scan_once(adapter, window)
+
         green = decide_green(cnt)
         print(f"{_now()}DIR={direction} window={window}s -> count={cnt}  =>  next G={green}s")
 
