@@ -13,6 +13,10 @@ BASE_GREEN = 5             # 기본 녹색 시간
 TH1, G1 = 3, 8
 TH2, G2 = 6, 12
 
+# 추가: 비콘 주기(대기 상태에서 주기적으로 ACK 보냄)
+BEACON_PERIOD_S = 2
+last_beacon_s = 0
+
 ACK_UUID16 = 0xFFFF  # 피코가 보내는 ACK의 Service Data UUID
 
 # --------- 유틸 ---------
@@ -148,18 +152,32 @@ async def main(adapter: str, direction: str, window: int):
         pass
 
     while True:
-        # 1) 대기창(스캔) 동안 차량수 수집
-        cnt = await scan_once(window)
-        green = decide_green(cnt)
-
-        print(f"{_now()}DIR={direction} window={window}s -> count={cnt}  =>  next G={green}s")
-
-        # 2) 카운트다운 광고 송출
-        push_countdown(adapter, green, direction)
-
-        # 3) 다음 라운드 전 짧은 휴식(원하면 조정)
-        time.sleep(0.5)
-
+        now = time.ticks_ms()
+        age = time.ticks_diff(now, last_rx_ms)
+    
+        if remain is not None and age < TIMEOUT_MS:
+            # 최근 중앙 카운트다운을 받은 상태 → 초마다 표시 및 ACK
+            if time.ticks_diff(now, last_tick) >= 1000:
+                last_tick = now
+                if remain > 0:
+                    remain -= 1
+                led_blink(60)
+                ns = time.time()
+                if ns != last_ack_s:          # 1초마다 ACK
+                    last_ack_s = ns
+                    send_ack_once(cur_dir)
+            else:
+                time.sleep_ms(50)
+    
+        else:
+            # 대기 상태(최근 카운트다운 없음) → 주기적으로 비콘(ACK) 송신
+            remain = None
+            led_blink(60, 440)  # 원하면 줄이거나 끄셔도 됩니다.
+            ns = time.time()
+            if ns - last_beacon_s >= BEACON_PERIOD_S:
+                last_beacon_s = ns
+                # 방향 정보가 없다면 '?' 그대로 전송
+                send_ack_once(cur_dir)
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--adapter", default=DEFAULT_ADAPTER, help="hci0 or hci1")
