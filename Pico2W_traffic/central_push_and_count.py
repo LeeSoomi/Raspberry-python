@@ -179,28 +179,21 @@ if __name__ == "__main__":
     asyncio.run(main(args.adapter, args.direction, args.window))
 
 
-# 실행 방법
+# 어댑터 준비(한 번만 해두면 됨)
 
-# (처음 1회만) 패키지 준비
-
-# sudo apt update
-# sudo apt install -y bluetooth bluez bluez-tools
-# python3 -m venv bleenv
-# source bleenv/bin/activate
-# pip install --upgrade pip bleak
-
-
-# 어댑터 확인/준비
-
-# hciconfig -a                 # hci0/hci1 확인
 # sudo rfkill unblock bluetooth
-# sudo hciconfig hci0 up       # 내장 쓰면 hci0
+# sudo hciconfig hci0 up
 # sudo btmgmt -i hci0 le on
-# # 동글이 쓰면 hci1 도 같은 방식으로 up + le on
+# # 동글이도 쓰면
+# sudo hciconfig hci1 up
+# sudo btmgmt -i hci1 le on
 
 
-# 실행
+# 가상환경 활성화
 
-# cd ~/COS
-# source ../bleenv/bin/activate
+# source bleenv/bin/activate
+
+
+# 중앙 실행(예: 동글이 hci1, 방향 A, 스캔 15초)
+
 # sudo -E env PATH="$PATH" python3 central_push_and_count.py --adapter hci1 --direction A --window 15
