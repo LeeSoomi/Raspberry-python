@@ -8,7 +8,7 @@ YELLOW = 3
 RED_SCAN = 15
 MIN_G, BASE_G, MAX_G = 5, 5, 11
 SMOOTH_STEP = 2
-ADAPTER = "hci0"     # 내장만: "hci0" / 동글 추가 시: "hci1"
+ADAPTER = "hci1"     # 내장만: "hci0" / 동글 추가 시: "hci1"
 
 UUID16 = 0xFFFF      # 차량 ACK Service Data UUID
 
