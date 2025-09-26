@@ -96,24 +96,39 @@ def extract_ack_uid_and_dir(raw: bytes):
 async def scan_once(window_sec: int):
     """
     window_sec 동안 스캔하고, ACK 보낸 피코 수(유니크 uid3 기준)를 반환.
+    Bleak 버전 차이를 피하기 위해 콜백은 생성자에서 등록하고,
+    advertisement_data.service_data를 우선 사용합니다.
     """
     seen = set()
 
-    def cb(d, ad):
-        if ad is None:  # bleak 최신 버전 콜백은 (device, advertisement_data)
+    def cb(device, ad):
+        # ad: AdvertisementData
+        if ad is None:
             return
-        raw = ad.manufacturer_data_bytes or b""
-        # manufacturer_data 가 비어있을 수 있어 전체 바이트가 필요.
-        # bleak는 advertisement_data.bytes 로 전체 패킷 제공
+
+        # 1) service_data 경로 (권장, 대부분의 bleak 버전에서 제공)
+        svc = getattr(ad, "service_data", None)
+        if isinstance(svc, dict):
+            # 키는 '0000ffff-0000-1000-8000-00805f9b34fb' 형태나 'FFFF' 로 올 수 있음
+            for k, payload in svc.items():
+                # UUID 끝 4글자가 ffff 인지로 판정
+                ks = str(k).lower()
+                if ks.endswith("ffff"):
+                    if isinstance(payload, (bytes, bytearray)) and len(payload) >= 5 and payload[0:1] == b'P':
+                        uid3 = payload[1:4]
+                        seen.add(uid3.hex())
+
+        # 2) (옵션) 일부 버전에서 raw bytes가 ad.bytes 에 있을 수 있음 — 보조 루트
         raw_all = getattr(ad, "bytes", None)
         if raw_all:
             found = extract_ack_uid_and_dir(raw_all)
             if found:
-                uid_hex, direction = found
+                uid_hex, _direction = found
                 seen.add(uid_hex)
 
-    scanner = BleakScanner()  # 어댑터는 OS 기본(default) 사용
-    scanner.register_detection_callback(cb)
+    # 콜백을 생성자 인자로 등록 (register_detection_callback 없이도 동작)
+    scanner = BleakScanner(detection_callback=cb)
+
     try:
         await scanner.start()
         await asyncio.sleep(window_sec)
@@ -121,6 +136,7 @@ async def scan_once(window_sec: int):
         await scanner.stop()
 
     return len(seen)
+
 
 async def main(adapter: str, direction: str, window: int):
     print(f"{_now()}[A] single-direction controller start (adapter={adapter})")
