@@ -162,3 +162,31 @@ if __name__ == "__main__":
     TH2, G2 = args.th2, args.g2
 
     asyncio.run(main(args.adapter, args.direction, args.window))
+
+
+
+# 실행 방법
+
+# (처음 1회만) 패키지 준비
+
+# sudo apt update
+# sudo apt install -y bluetooth bluez bluez-tools
+# python3 -m venv bleenv
+# source bleenv/bin/activate
+# pip install --upgrade pip bleak
+
+
+# 어댑터 확인/준비
+
+# hciconfig -a                 # hci0/hci1 확인
+# sudo rfkill unblock bluetooth
+# sudo hciconfig hci0 up       # 내장 쓰면 hci0
+# sudo btmgmt -i hci0 le on
+# # 동글이 쓰면 hci1 도 같은 방식으로 up + le on
+
+
+# 실행
+
+# cd ~/COS
+# source ../bleenv/bin/activate
+# sudo -E env PATH="$PATH" python3 central_push_and_count.py --adapter hci1 --direction A --window 15
