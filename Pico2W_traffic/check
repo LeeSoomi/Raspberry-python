@@ -1,34 +1,149 @@
-라즈베리파이 설치 
-# 처음부터 권장 순서
+1) 준비(라즈베리)
 sudo apt update
-sudo apt install python3-venv -y
-
-# 가상환경 생성 및 진입
-python3 -m venv bleenv
-source bleenv/bin/activate
-
-# 설치
-pip install bleak
-
-# 재진입시에는 항상 가상환경 활성화
-source bleenv/bin/activate
-python3 central_push_and_count.py(파일명)
+sudo apt install -y python3-pip bluez bluez-hcidump
+pip3 install bluepy
+# bluepy가 raw소켓을 쓰므로 sudo로 실행하는 게 가장 간단
 
 
+Bluetooth 초기화(한 번만):
 
-■ 실행 순서 체크리스트
-
-차량(Pico W) 에 car_gatt_receiver.py 업로드 → 실행 → “Advertising(connectable)” 확인
-
-중앙(라즈베리파이) 에서 가상환경 활성화:
-source bleenv/bin/activate
-python3 central_push_and_count.py
+sudo btmgmt -i hci0 power off
+sudo btmgmt -i hci0 le on
+sudo btmgmt -i hci0 bredr off
+sudo btmgmt -i hci0 connectable off
+sudo btmgmt -i hci0 power on
 
 
-콘솔에
-Found N car(s)
-[SEQ 1] push secs=20
-ACK X/N received
-…
-같이 뜨면 정상.
+2) 중앙 스크립트 (광고↔스캔 교차) — 
+0.8초간 광고로 피코에게 “Q:1” 트리거
+2초간 스캔으로 피코들의 ACK(Service Data 0xFFFF) 수집
+반복 루프
 
+#!/usr/bin/env python3
+# central_cycle.py
+# - hci0로 Complete Local Name 광고(S:xx|D:yy|Q:1) -> Pico가 ACK광고
+# - 즉시 스캔 전환하여 UUID 0xFFFF Service Data 파싱해 차량 ID/방향 표시
+
+---------------------------------------------------------
+
+# central_cycle.py
+
+import subprocess, time, sys, signal
+from bluepy.btle import Scanner
+
+HCI = "hci0"
+S_DEFAULT = 15          # 초
+D_DEFAULT = "A"         # 방향 문자 1글자
+ADV_ON_MS = 800         # 광고 유지 시간(ms)
+SCAN_SEC = 2.0          # 스캔 시간(s)
+
+def run(cmd):
+    # 편의용: subprocess 호출
+    return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+def adv_on(name_str):
+    # btmgmt로 Complete Local Name 세팅 후 광고 ON
+    # name 은 LE 광고 데이터의 Complete Local Name으로 들어간다.
+    run(["sudo", "btmgmt", "-i", HCI, "power", "on"])
+    run(["sudo", "btmgmt", "-i", HCI, "name", name_str])
+    # Non-connectable, scannable advertising
+    run(["sudo", "btmgmt", "-i", HCI, "advertising", "on"])
+
+def adv_off():
+    run(["sudo", "btmgmt", "-i", HCI, "advertising", "off"])
+
+def parse_service_data_hex(hexstr):
+    """
+    bluepy가 Service Data를 hex 문자열로 준다.
+    기대 형식: ffff <payload...>
+    payload: 0x50('P') + uid3(3바이트) + 0x7C('|') + D(1바이트 문자)
+    """
+    try:
+        b = bytes.fromhex(hexstr)
+        if len(b) < 2: return None
+        uuid_le = b[0:2]     # b'\xff\xff'
+        if uuid_le != b'\xff\xff':
+            return None
+        payload = b[2:]
+        if len(payload) < 5:  # P + uid3 + '|'
+            return None
+        if payload[0] != 0x50:   # 'P'
+            return None
+        uid3 = payload[1:4]      # 3 bytes
+        if payload[4] != 0x7C:   # '|'
+            return None
+        direction = chr(payload[5]) if len(payload) >= 6 else '?'
+        uid_hex = uid3.hex().upper()
+        return {"uid3": uid_hex, "direction": direction}
+    except Exception:
+        return None
+
+def scan_once(duration=SCAN_SEC):
+    scanner = Scanner()
+    devices = scanner.scan(duration)
+    hits = []
+    for dev in devices:
+        for (adtype, desc, value) in dev.getScanData():
+            # 0x16 = Service Data (16-bit UUID)
+            if adtype == 0x16:
+                parsed = parse_service_data_hex(value)
+                if parsed:
+                    hits.append({
+                        "mac": dev.addr,
+                        "rssi": dev.rssi,
+                        "uid3": parsed["uid3"],
+                        "direction": parsed["direction"],
+                    })
+    return hits
+
+def main():
+    # 인자: S D (옵션)
+    S = str(S_DEFAULT)
+    D = D_DEFAULT
+    if len(sys.argv) >= 2: S = sys.argv[1]
+    if len(sys.argv) >= 3: D = sys.argv[2][:1]
+
+    print(f"[central] cycle start on {HCI}  S:{S} D:{D} (Q=1, ADV {ADV_ON_MS}ms, SCAN {SCAN_SEC}s)")
+    print("  Ctrl+C 로 종료")
+
+    def handle_sigint(sig, frame):
+        adv_off()
+        print("\n[central] stopped.")
+        sys.exit(0)
+    signal.signal(signal.SIGINT, handle_sigint)
+
+    while True:
+        # 1) 광고로 트리거 (Q=1)
+        name_str = f"S:{S}|D:{D}|Q:1"
+        adv_on(name_str)
+        time.sleep(ADV_ON_MS/1000.0)
+        adv_off()
+
+        # 2) 스캔하여 ACK 수집
+        hits = scan_once(SCAN_SEC)
+        if hits:
+            # 같은 uid3 여러 번 온 경우 uid3 기준으로 대표만 출력
+            seen = {}
+            for h in hits:
+                k = h["uid3"]
+                if k not in seen or h["rssi"] > seen[k]["rssi"]:
+                    seen[k] = h
+            print(f"[central] ACK 수신 {len(seen)}대:")
+            for k, h in seen.items():
+                print(f"  - UID3={h['uid3']}  D={h['direction']}  RSSI={h['rssi']}  MAC={h['mac']}")
+        else:
+            print("[central] ACK 없음")
+
+        # 루프 텀(원하면 조절)
+        time.sleep(0.5)
+
+if __name__ == "__main__":
+    main()
+
+------------------------------------------------
+
+실행:
+
+sudo python3 central_cycle.py            # 기본 S=15, D='A'
+# 또는
+sudo python3 central_cycle.py 12 B       # S=12, D='B'
