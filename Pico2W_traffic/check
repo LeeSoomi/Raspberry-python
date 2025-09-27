@@ -38,96 +38,81 @@ sudo btmgmt -i hci0 power on
 ---------------------------------------------------------
 
 #!/usr/bin/env python3
-# central_cycle.py — Trigger via Service Data (UUID 0xFFFE)
-# Fallback: if `btmgmt advdata` fails, use raw HCI via `hcitool cmd`
-
 import subprocess, time, sys, signal
 from bluepy.btle import Scanner
 
 HCI = "hci0"
-
 S_DEFAULT = 15
 D_DEFAULT = "A"
-ADV_ON_MS = 300       # 짧게 트리거
-SCAN_SEC  = 3.0       # 스캔은 넉넉히
+ADV_ON_MS = 250      # 트리거는 짧게
+SCAN_SEC  = 3.5      # 스캔은 넉넉히
 
 def run(cmd):
     return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-# ---------------------- build adv payload ----------------------
+def bytes_to_hex_args(b: bytes):
+    # btmgmt advdata 는 "aa bb cc ..." 식으로 각 바이트를 별도 인자로 기대
+    return [f"{x:02x}" for x in b]
+
 def build_trigger_bytes(s, d, q=1):
-    """
-    Flags(0x01:0x06) + Service Data(0x16, UUID=0xFFFE, ascii 'S:..|D:..|Q:..')
-    returns: bytes
-    """
+    # Flags + Service Data(0x16, UUID=0xFFFE, ascii "S:..|D:..|Q:..")
     flags = bytes.fromhex("02 01 06")
     payload = f"S:{s}|D:{d}|Q:{q}".encode()
     sd = bytes([1 + 2 + len(payload), 0x16]) + b"\xfe\xff" + payload
     return flags + sd
 
-# ---------------------- btmgmt path ----------------------
+# ---------- btmgmt path ----------
 def adv_on_trigger_btmgmt(s, d, q=1):
-    # 컨트롤러 준비
     run(["sudo", "btmgmt", "-i", HCI, "power", "on"])
     run(["sudo", "btmgmt", "-i", HCI, "le", "on"])
     run(["sudo", "btmgmt", "-i", HCI, "bredr", "off"])
     run(["sudo", "btmgmt", "-i", HCI, "connectable", "off"])
-    # advdata 세팅
-    hexdata = build_trigger_bytes(s, d, q).hex()
-    out = run(["sudo", "btmgmt", "-i", HCI, "advdata", hexdata])
+    adv = build_trigger_bytes(s, d, q)
+    args = ["sudo", "btmgmt", "-i", HCI, "advdata"] + bytes_to_hex_args(adv)
+    out = run(args)
     if out.returncode != 0:
         print("[central] btmgmt advdata error:", out.stderr.strip())
         return False
     run(["sudo", "btmgmt", "-i", HCI, "advertising", "on"])
+    print("[central] using btmgmt")
     return True
 
 def adv_off_btmgmt():
     run(["sudo", "btmgmt", "-i", HCI, "advertising", "off"])
 
-# ---------------------- raw HCI path (fallback) ----------------------
+# ---------- raw HCI (fallback) ----------
 def _hexlist(b: bytes):
     return [f"{x:02x}" for x in b]
 
 def hci_cmd(ogf, ocf, payload_bytes):
-    # ogf/ocf must be hex strings like "0x08", "0x0008"
     return run(["sudo", "hcitool", "-i", HCI, "cmd", ogf, ocf] + _hexlist(payload_bytes))
 
 def adv_on_trigger_hci(s, d, q=1):
-    # bring up
     run(["sudo", "hciconfig", HCI, "up"])
-    # Set Advertising Parameters (0x08, 0x0006)
-    # min=max=0x00A0 (100ms), type=0x03 (ADV_NONCONN_IND), own_addr=0x00 (public),
-    # direct_addr_type=0x00, direct_addr=00*6, chan_map=0x07, filter=0x00
-    params = bytes.fromhex(
-        "A0 00 A0 00 03 00 00 00 00 00 00 00 07 00"
-    )
+    # Set Advertising Parameters: min=max=0x00A0(100ms), type=0x03(ADV_NONCONN_IND)
+    params = bytes.fromhex("A0 00 A0 00 03 00 00 00 00 00 00 00 07 00")
     hci_cmd("0x08", "0x0006", params)
-
-    # Set Advertising Data (0x08, 0x0008)
+    # Set Advertising Data
     adv = build_trigger_bytes(s, d, q)
     if len(adv) > 31:
-        print("[central] adv payload too long:", len(adv))
-        return False
+        print("[central] adv payload too long:", len(adv)); return False
     pad = bytes([0x00] * (31 - len(adv)))
     hci_cmd("0x08", "0x0008", bytes([len(adv)]) + adv + pad)
-
-    # Enable Advertising (0x08, 0x000A)
+    # Enable Advertising
     hci_cmd("0x08", "0x000A", bytes([0x01]))
+    print("[central] using hcitool fallback")
     return True
 
 def adv_off_hci():
-    # Disable Advertising
     hci_cmd("0x08", "0x000A", bytes([0x00]))
 
-# ---------------------- scan & parse ACK ----------------------
+# ---------- scan ACK (UUID 0xFFFF: 'P'+uid3+'|'+D) ----------
 def parse_service_data_hex(hexstr):
     try:
         b = bytes.fromhex(hexstr)
-        if len(b) < 2 or b[0:2] != b'\xff\xff':
-            return None
+        if len(b) < 2 or b[0:2] != b'\xff\xff': return None
         p = b[2:]
-        if len(p) < 5 or p[0] != 0x50 or p[4] != 0x7C:
-            return None
+        if len(p) < 5 or p[0] != 0x50 or p[4] != 0x7C: return None
         uid3 = p[1:4].hex().upper()
         direction = chr(p[5]) if len(p) >= 6 else '?'
         return {"uid3": uid3, "direction": direction}
@@ -143,18 +128,11 @@ def scan_once(duration=SCAN_SEC):
             if adtype == 0x16:
                 parsed = parse_service_data_hex(value)
                 if parsed:
-                    hits.append({
-                        "mac": d.addr,
-                        "rssi": d.rssi,
-                        "uid3": parsed["uid3"],
-                        "direction": parsed["direction"],
-                    })
+                    hits.append({"mac": d.addr, "rssi": d.rssi, **parsed})
     return hits
 
-# ---------------------- main loop ----------------------
 def main():
-    S = str(S_DEFAULT)
-    D = D_DEFAULT
+    S = str(S_DEFAULT); D = D_DEFAULT
     if len(sys.argv) >= 2: S = sys.argv[1]
     if len(sys.argv) >= 3: D = sys.argv[2][:1]
 
@@ -163,23 +141,17 @@ def main():
 
     def handle_sigint(sig, frame):
         adv_off_btmgmt(); adv_off_hci()
-        print("\n[central] stopped.")
-        sys.exit(0)
+        print("\n[central] stopped."); sys.exit(0)
     signal.signal(signal.SIGINT, handle_sigint)
 
     while True:
-        # 1) trigger advertise (prefer btmgmt, fallback to raw HCI)
         ok = adv_on_trigger_btmgmt(S, D, 1)
         if not ok:
             ok = adv_on_trigger_hci(S, D, 1)
 
         time.sleep(ADV_ON_MS/1000.0)
+        adv_off_btmgmt(); adv_off_hci()
 
-        # stop advertising (both paths)
-        adv_off_btmgmt()
-        adv_off_hci()
-
-        # 2) scan ACK
         hits = scan_once(SCAN_SEC)
         if hits:
             seen = {}
@@ -197,5 +169,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
+-------------------
