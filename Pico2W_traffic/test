@@ -93,3 +93,17 @@ sudo hcitool -i hci1 cmd 0x08 0x0008  \
 → 이 경우 피코 코드에 0xFFFE 파서 추가가 필요
 여기서 C 는 “디버그 비콘”, P 는 “ACK” 입니다.
 지금은 C만 떠도 정상. 이게 확인되면 이후 트리거-ACK 로직도 살아있다는 뜻입니다.
+
+=========-------------------
+
+라즈베리 다른 터미널에서 트리거 광고 켜기(hci1):
+
+sudo hciconfig hci1 up
+sudo hcitool -i hci1 cmd 0x08 0x0006  a0 00  a0 00  03 00  00 00 00 00 00 00  07 00
+# 이름 "S:15|D:A|Q:1"
+sudo hcitool -i hci1 cmd 0x08 0x0008  \
+  11  02 01 06  0D 09  53 3a 31 35 7c 44 3a 41 7c 51 3a 31  \
+  00 00 00 00 00 00 00 00 00 00 00 00 00 00
+sudo hcitool -i hci1 cmd 0x08 0x000a 01
+-------------
+지금 돌리고 있는 central_scan.py(hci0) 화면에 ‘P 차량…’ 줄이 뜨는지 확인.
