@@ -135,3 +135,14 @@ def run_sim():
 
 if __name__ == "__main__":
     run_sim()
+
+
+---------------------------
+
+car_names.json
+{
+  "B3C827": "C  차량1  UID3=B3C827",
+  "3F06FE": "C  차량2  UID3=3F06FE",
+  "CA8756": "C  차량3  UID3=CA8756"
+}
+
