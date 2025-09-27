@@ -18,6 +18,124 @@ def parse_service_data_hex(hexstr):
         tag = payload[0]  # b'C' or b'P'
         if tag not in (0x43, 0x50):  # 'C', 'P'
             return None
+
+
+------------------------------------
+
+
+0) 어떤 hci가 살아있는지 확인
+sudo btmgmt info
+sudo btmgmt -i hci0 info
+sudo btmgmt -i hci1 info
+
+
+POWERED: yes, le(Low Energy) supported: yes면 OK.
+
+1) 인터페이스 초기화(각각 실행)
+
+아래 블록을 hci0, hci1에 각각 수행:
+
+IF=hci0   # 또는 hci1
+sudo btmgmt -i $IF power off
+sudo btmgmt -i $IF le on
+sudo btmgmt -i $IF bredr off
+sudo btmgmt -i $IF connectable off
+sudo btmgmt -i $IF power on
+
+2) TX 테스트: 해당 hci로 “순수 광고” 내보내기 (raw HCI)
+
+Pi가 광고를 제대로 송출하는지부터 확인한다. (휴대폰 nRF Connect/다른 Pi에서 보이면 정상)
+
+IF=hci0   # 또는 hci1
+sudo hciconfig $IF up
+# (a) 광고 파라미터: min=max=100ms, non-connectable(0x03)
+sudo hcitool -i $IF cmd 0x08 0x0006  a0 00  a0 00  03 00  00 00 00 00 00 00  07 00
+# (b) 광고 데이터: Flags + Shortened Name "PI-TEST"
+sudo hcitool -i $IF cmd 0x08 0x0008  0B  02 01 06  09 08 50 49 2D 54 45 53 54  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+# (c) 광고 시작
+sudo hcitool -i $IF cmd 0x08 0x000a  01
+
+
+확인:
+
+폰 nRF Connect에서 PI-TEST 보이면 그 hci의 송출 OK.
+
+중지:
+
+sudo hcitool -i $IF cmd 0x08 0x000a  00
+
+
+만약 한쪽(hci1)은 보이고, 다른 쪽(hci0)은 안 보이면 → 해당 어댑터에 문제(전원/드라이버/불량) 가능성.
+
+3) RX 테스트: 해당 hci로 스캔 잘 되는지
+
+bluepy 스캐너로 hci 선택해서 스캔한다. (0→hci0, 1→hci1)
+
+# hci0 스캔 3초
+sudo /home/codestudio/bleenv/bin/python - <<'PY'
+from bluepy.btle import Scanner
+for iface in (0,):
+    print("[scan] iface", iface)
+    devs = Scanner(iface=iface).scan(3.0)
+    print("  devices:", len(devs))
+    for d in devs[:5]:
+        print("   ", d.addr, d.rssi, d.getScanData())
+PY
+
+# hci1 스캔 3초
+sudo /home/codestudio/bleenv/bin/python - <<'PY'
+from bluepy.btle import Scanner
+iface=1
+print("[scan] iface", iface)
+devs = Scanner(iface=iface).scan(3.0)
+print("  devices:", len(devs))
+for d in devs[:5]:
+    print("   ", d.addr, d.rssi, d.getScanData())
+PY
+
+
+해석:
+
+둘 다 여러 기기가 찍히면 RX OK.
+
+한쪽만 비면 그 인터페이스의 스캔 경로 문제.
+
+4) 트리거(0xFFFE) 송출 테스트 (해당 hci가 Service Data도 잘 내보내는지)
+
+위 2단계와 비슷하지만 **Service Data(0xFFFE)**로 트리거를 보낸다. (피코가 받기 쉬운 형태)
+
+IF=hci1   # 광고 전용으로 쓸 예정인 쪽 권장
+sudo hciconfig $IF up
+# 파라미터(100ms, non-connectable)
+sudo hcitool -i $IF cmd 0x08 0x0006  a0 00  a0 00  03 00  00 00 00 00 00 00  07 00
+# ADV DATA = Flags + ServiceData(0x16, UUID=FFFE, "S:15|D:A|Q:1")
+sudo hcitool -i $IF cmd 0x08 0x0008  \
+  18  02 01 06  14 16 fe ff  53 3a 31 35 7c 44 3a 41 7c 51 3a 31 \
+  00 00 00 00 00 00 00 00 00 00 00 00 00
+# enable
+sudo hcitool -i $IF cmd 0x08 0x000a  01
+
+
+옆 Pi/폰에서 Service Data 0xFFFE가 보이면 트리거 광고 OK.
+
+중지: sudo hcitool -i $IF cmd 0x08 0x000a 00
+
+5) 결론에 따른 다음 행동
+
+hci0=RX OK / hci1=TX OK면 → 듀얼 운용 추천: central_dual.py로 hci1 광고 지속, hci0 스캔.
+
+둘 다 TX/RX OK인데 여전히 ACK 없음이면 → 피코가 트리거 포맷을 못 읽는 것.
+→ 피코에 0xFFFE Service Data 파서 추가(내가 앞서 제안)로 해결.
+
+특정 hci에서 TX or RX가 아예 실패면 → 그 인터페이스는 제외하고 다른 쪽으로 구성, 또는 동글 교체/전원 점검.
+
+빠른 체크 포인트
+
+sudo btmgmt -i hciX info 에서 POWERED: yes / le: supported 확인
+
+광고 시작/중지는 0x08 0x000a 01/00
+
+bluepy Scanner(iface=0/1) 로 각각 스캔 확인
         info = {"tag": chr(tag)}
         if len(payload) >= 4:
             uid3 = payload[1:4]
