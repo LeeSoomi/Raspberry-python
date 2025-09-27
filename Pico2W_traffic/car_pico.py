@@ -1,66 +1,150 @@
-# car_pico.py (MicroPython)
+# car_pico.py  (MicroPython for Pico W)
+
 from micropython import const
-from machine import Pin, unique_id
+from machine import unique_id
 import bluetooth, ubinascii, utime
 
-SCAN_INT_US = const(50_000)
-SCAN_WIN_US = const(50_000)
-ACK_SERVICE_UUID = bluetooth.UUID(0xFFFF)
+# ===== 설정 =====
+SCAN_INT_US    = const(50_000)     # scan interval (μs)
+SCAN_WIN_US    = const(50_000)     # scan window  (μs)
 
-ble = bluetooth.BLE(); ble.active(True)
-my_uid = ubinascii.hexlify(unique_id())[:6].decode().upper()
+ADV_INT_US     = const(100_000)    # ACK 광고 간격(μs) ≈ 100ms
+ACK_BURST_MS   = const(600)        # ACK 송신 지속(ms)
+JITTER_MAX_MS  = const(250)        # 각 차량 지터(ms)
 
-# 간단한 광고 파서 (Complete Local Name만 사용)
-def parse_adv_name(adv_data):
+SHOW_ONLY_MINE = True              # 내 방향일 때만 출력
+ALWAYS_ACK     = True              # 테스트용: Q 없어도 1Hz로 ACK (운영 시 False 권장)
+
+# ===== BLE 초기화 & 내 UID6 =====
+ble = bluetooth.BLE()
+ble.active(True)
+_my_uid_hex = ubinascii.hexlify(unique_id()).decode().upper()
+my_uid6     = _my_uid_hex[-6:]     # 예: 'B3C827'
+
+# ===== 유틸 =====
+def _jitter_ms_from_uid(uid6):
+    h = 0
+    for ch in uid6:
+        h = (h * 131 + ord(ch)) & 0xFFFF
+    return h % JITTER_MAX_MS
+
+def _iter_ad(adv):
     i = 0
-    while i + 1 < len(adv_data):
-        length = adv_data[i]
-        if length == 0: break
-        t = adv_data[i+1]
-        if t == 0x09:  # Complete Local Name
-            try:
-                return adv_data[i+2:i+1+length].decode()
-            except: return None
-        i += 1 + length
+    L = len(adv)
+    while i + 1 < L:
+        ln = adv[i]
+        if ln == 0: break
+        t  = adv[i + 1]
+        payload = adv[i + 2 : i + 1 + ln]
+        yield t, payload
+        i += 1 + ln
+
+def parse_controller_adv(adv_data):
+    """
+    Service Data(0x16, UUID 0xFFFF)에
+    'PH:NS|DIR:N|T:GREEN|RT:8|G:8|Q:1' 문자열이 온다고 가정.
+    (호환을 위해 Local Name(0x09)에도 동일 포맷이 있으면 파싱)
+    """
+    # 우선 0x16(0xFFFF) 시도
+    try:
+        for t, p in _iter_ad(adv_data):
+            if t == 0x16 and len(p) >= 2 and p[0] == 0xFF and p[1] == 0xFF:
+                s = p[2:].decode()
+                parts = {}
+                for kv in s.split("|"):
+                    if ":" in kv:
+                        k, v = kv.split(":", 1); parts[k] = v
+                if "DIR" in parts and "T" in parts and "RT" in parts and "Q" in parts:
+                    return {
+                        "PH": parts.get("PH", ""),
+                        "DIR": parts.get("DIR", ""),
+                        "T":  parts.get("T", ""),
+                        "RT": int(parts.get("RT", "0") or 0),
+                        "G":  int(parts.get("G", "0") or 0),
+                        "Q":  int(parts.get("Q", "0") or 0),
+                    }
+    except: pass
+    # 폴백: Local Name(0x09)에서 동일 포맷 시도
+    try:
+        for t, p in _iter_ad(adv_data):
+            if t == 0x09:
+                s = p.decode()
+                parts = {}
+                for kv in s.split("|"):
+                    if ":" in kv:
+                        k, v = kv.split(":", 1); parts[k] = v
+                if "DIR" in parts and "T" in parts and "RT" in parts and "Q" in parts:
+                    return {
+                        "PH": parts.get("PH", ""),
+                        "DIR": parts.get("DIR", ""),
+                        "T":  parts.get("T", ""),
+                        "RT": int(parts.get("RT", "0") or 0),
+                        "G":  int(parts.get("G", "0") or 0),
+                        "Q":  int(parts.get("Q", "0") or 0),
+                    }
+    except: pass
     return None
 
-state = {"T":"RED", "RT":0, "PH":"NS", "G":5, "Q":0, "last_ts":0}
+# ===== 상태 =====
+state = {"PH":"", "DIR":"", "T":"RED", "RT":0, "G":0, "Q":0, "last_ms":0}
 
-def on_scan(addr_type, addr, adv_type, rssi, adv_data):
-    name = parse_adv_name(adv_data)
-    if not name: return
-    # 기대 형식: "PH:NS|T:GREEN|RT:12|G:7|Q:1"
-    try:
-        parts = dict(p.split(":") for p in name.split("|"))
-        state["PH"] = parts.get("PH", state["PH"])
-        state["T"]  = parts.get("T", state["T"])
-        state["RT"] = int(parts.get("RT", state["RT"]))
-        state["G"]  = int(parts.get("G", state["G"]))
-        state["Q"]  = int(parts.get("Q", state["Q"]))
-        state["last_ts"] = utime.ticks_ms()
-    except Exception as e:
-        pass
+# ===== IRQ =====
+def _irq(event, data):
+    if event == bluetooth.IRQ_SCAN_RESULT:
+        addr_type, addr, adv_type, rssi, adv_data = data
+        info = parse_controller_adv(adv_data)
+        if info:
+            state.update(info)
+            state["last_ms"] = utime.ticks_ms()
 
-def send_ack(direction="N"):
-    # Service Data 0xFFFF: b"P|D:N|UID:ABC123|C:1"
-    payload = "P|D:{}|UID:{}|C:1".format(direction, my_uid).encode()
-    sd = bytes([len(payload)+3, 0x16, 0xFF, 0xFF]) + payload
-    # 비컨식 확대로 간단 송신(연속 광고), 실제 환경에서는 GATT로도 가능
-    ble.gap_advertise(100, adv_data=sd)
+ble.irq(_irq)
 
+# ===== ACK 송신 =====
+def send_ack_burst(direction="N", burst_ms=ACK_BURST_MS):
+    # 0xFFFF Service Data + ASCII payload
+    payload_str = "P|D:{}|UID:{}|C:1".format(direction, my_uid6)
+    payload = payload_str.encode()
+    adv_sd = bytes([len(payload) + 3, 0x16, 0xFF, 0xFF]) + payload
+
+    # 지터로 충돌 완화
+    utime.sleep_ms(_jitter_ms_from_uid(my_uid6))
+
+    # 스캔 중지 → 광고 → 재개
+    ble.gap_scan(None)
+    # MicroPython은 키워드 인자 미지원: 위치 인자만
+    ble.gap_advertise(ADV_INT_US, adv_sd, None, False)
+    utime.sleep_ms(burst_ms)
+    ble.gap_advertise(None)
+    # (duration_ms, interval_us, window_us) 순서
+    ble.gap_scan(0, SCAN_INT_US, SCAN_WIN_US)
+
+# ===== 메인 =====
 def main(direction="N"):
-    ble.gap_scan(0, SCAN_WIN_US, SCAN_INT_US)
-    ble.irq(handler=lambda e, d: on_scan(*d) if e==bluetooth.IRQ_SCAN_RESULT else None)
+    # 지속 스캔 시작
+    ble.gap_scan(0, SCAN_INT_US, SCAN_WIN_US)
 
     last_ack = 0
-    while True:
-        # 콘솔 표시(대신 NeoPixel/LED로 매핑 가능)
-        print("T={} RT={} PH={} G={} Q={}".format(state["T"], state["RT"], state["PH"], state["G"], state["Q"]))
-        # ACK 요청 시 1Hz 송신
-        now = utime.ticks_ms()
-        if state["Q"] and utime.ticks_diff(now, last_ack) >= 1000:
-            send_ack(direction)
-            last_ack = now
-        utime.sleep_ms(500)
+    last_print = 0
 
-main("N")  # 차량이 향하는 기본 방향(필요 시 변경)
+    while True:
+        now = utime.ticks_ms()
+
+        mine = (state["DIR"] == direction) if state["DIR"] else True
+        want_ack = (ALWAYS_ACK or state["Q"] == 1)
+
+        # 1Hz ACK
+        if mine and want_ack and utime.ticks_diff(now, last_ack) >= 1000:
+            send_ack_burst(direction)
+            last_ack = now
+
+        # 콘솔 표시(0.5s)
+        if utime.ticks_diff(now, last_print) >= 500:
+            if not SHOW_ONLY_MINE or mine:
+                print("DIR:{}  T:{:<6} RT:{:>2}  G:{:>2}  Q:{}  UID:{}"
+                      .format(state["DIR"] or "-", state["T"], state["RT"], state["G"], state["Q"], my_uid6))
+            last_print = now
+
+        utime.sleep_ms(50)
+
+# 부팅 자동 실행용 (원하면 주석 처리)
+# main("N")
