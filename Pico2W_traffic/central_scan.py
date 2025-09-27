@@ -76,26 +76,97 @@
 # 실행
 # sudo /home/codestudio/bleenv/bin/python /home/codestudio/COS/central_scan.py
 
-# central_scan.py (콜백형 API 예시)
-import threading
+# central_scan.py
+#!/usr/bin/env python3
+from bluepy.btle import Scanner
+import time, threading
 
+IFACE = 0          # hci0
+SCAN_SEC = 2.0
+ONLY_P   = True    # True면 ACK('P')만 전달
+
+# --- 0xFFFF Service Data 파서 (두 포맷 모두 지원) ---
+def parse_servdata_hex(hexstr):
+    """
+    반환: {"tag": "P"/"C", "uid3": "B3C827", "direction": "N" or None}
+    매칭 실패 시 None
+    """
+    try:
+        b = bytes.fromhex(hexstr)
+        # 0xFFFF + payload
+        if len(b) < 3 or b[0:2] != b"\xff\xff":
+            return None
+        p = b[2:]  # payload
+
+        if not p:
+            return None
+
+        tag = chr(p[0])  # 'P' or 'C'
+        if tag not in ("P", "C"):
+            return None
+
+        info = {"tag": tag, "uid3": None, "direction": None}
+
+        # --- 케이스 A: 바이너리 UID(3바이트) + "|D:N"
+        #   p = b'P' + <3bytes> + b'|D:' + b'N' + ...
+        if len(p) >= 4 and p[1] != 0x7C:  # 0x7C='|'
+            uid3 = p[1:4].hex().upper()
+            info["uid3"] = uid3
+            # 방향 찾기
+            pos = p.find(b"|D:")
+            if pos != -1 and pos + 3 < len(p):
+                info["direction"] = chr(p[pos + 3])
+            return info
+
+        # --- 케이스 B: ASCII 포맷 "P|D:N|UID:ABC123|C:1"
+        try:
+            s = p.decode(errors="ignore")
+            # UID
+            uid3 = None
+            if "UID:" in s:
+                # UID: 뒤 6글자만 사용
+                part = s.split("UID:", 1)[1]
+                uid3 = part[:6].upper()
+            info["uid3"] = uid3
+            # 방향
+            if "|D:" in s:
+                info["direction"] = s.split("|D:", 1)[1][:1]
+            return info if uid3 else None
+        except Exception:
+            return None
+    except Exception:
+        return None
+
+# --- 스캐너 스레드: on_seen(dir, uid_hex) 콜백 호출 ---
 def start_scan(on_seen, target_dir=None):
-    """
-    on_seen(direction:str, uid_hex:str) 를 매번 호출
-    target_dir: "N"|"E"|"S"|"W" (선택) — 있으면 그 방향만 전달
-    """
-    # ... BLE 스캔 초기화 ...
-
+    scanner = Scanner(iface=IFACE)
     def loop():
         while True:
-            # ★ 광고 파싱 (예: Service Data "P|D:N|UID:B3C827|C:1")
-            # dir_letter = "N"  # 파싱 결과
-            # uid_hex    = "B3C827"
-            # if target_dir and dir_letter != target_dir: continue
-            # on_seen(dir_letter, uid_hex)
-
-            pass  # ← 여기에 기존 인식 로직/파서 그대로 사용
-
+            devs = scanner.scan(SCAN_SEC)
+            for d in devs:
+                for (adtype, desc, value) in d.getScanData():
+                    if adtype != 0x16:       # 0x16 = Service Data(16-bit)
+                        continue
+                    info = parse_servdata_hex(value)
+                    if not info: 
+                        continue
+                    if ONLY_P and info["tag"] != "P":
+                        continue
+                    uid = info.get("uid3")
+                    if not uid:
+                        continue
+                    dirc = info.get("direction") or target_dir or "N"
+                    on_seen(dirc, uid)
+            time.sleep(0.05)
     th = threading.Thread(target=loop, daemon=True)
     th.start()
     return th
+
+# --- 단독 실행시 콘솔 출력 데모 ---
+if __name__ == "__main__":
+    def _print(d, u):
+        print(f"[SEEN] dir={d} uid={u}")
+    print("[scan] start on hci%d" % IFACE)
+    start_scan(_print, target_dir="N")
+    while True:
+        time.sleep(1)
