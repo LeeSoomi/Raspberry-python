@@ -1,167 +1,227 @@
-# main.py  (Raspberry Pi Pico W / MicroPython v1.26.x)
-# - 센터(라즈베리)가 Complete Local Name(0x09)로 "S:15|D:A|Q:1" 형식 광고를 내보낸다고 가정
-# - 남은 시간(S)을 수신해 1초마다 LED 깜빡이며 카운트다운
-# - Q=1이면 초당 1회 ACK를 0xFFFF Service Data로 송신 (P + uid3 + direction)
-# - 스캔이 오래가다 멈추는 경우를 대비해 10초마다 스캔 재시작
+# main.py  (Raspberry Pi Pico W / MicroPython)
+# 기능 요약
+# - 중앙 라즈베리 광고의 이름/축약이름(0x09/0x08) "S:15|D:A|Q:1" 파싱
+# - S(초) 카운트다운을 LED 점멸로 표시
+# - Q==1이면 ACK(Service Data 0xFFFF)로 'P'+uid3+'|'+D 송신
+# - 타이밍 안정화를 위해 ACK 전 짧은 지연 및 광고 지속시간 연장
+# - 디버그 비콘: 1초마다 300ms 동안 'C'+uid3 를 0xFFFF Service Data로 광고(가시성↑)
+# - 스캔 워치독/주기적 재시작
 
-from bluetooth import BLE
-from machine import Pin, unique_id
-import time
+from micropython import const
+from machine import Pin, Timer, unique_id
+import bluetooth
+import ubinascii
+import utime as time
 
-# ===== 튜닝 파라미터 =====
-TIMEOUT_MS   = 6000          # 수신 끊긴 후 유지 시간(표시 타임아웃)
-SCAN_WIN_US  = 50_000        # 스캔 윈도우
-SCAN_INT_US  = 50_000        # 스캔 인터벌
-ACK_UUID16   = 0xFFFF        # ACK Service Data UUID
-ACK_ADV_US   = 200_000       # ACK 광고 간격(us)
-ACK_DUR_S    = 0.6           # ACK 송신 지속(초) → 이 동안 여러 프레임 송출
-SCAN_KICK_MS = 10_000        # 스캔 재시작 주기(안전장치)
+# ===== 설정/튜닝 =====
+# 스캔 동작
+TIMEOUT_MS    = const(6000)       # 마지막 수신 후 표시 유지 타임아웃
+SCAN_INT_US   = const(50_000)     # 스캔 간격
+SCAN_WIN_US   = const(50_000)     # 스캔 윈도우
+RESTART_MS    = const(10_000)     # 주기적 스캔 재시작 주기
 
-# ===== 초기화 =====
-ble = BLE()
+# ACK(응답) 광고
+ACK_DELAY_MS  = const(150)        # 중앙이 광고→스캔 전환할 때까지 기다리기
+ACK_BURST_MS  = const(1800)       # ACK 광고 유지시간
+ADV_INT_US    = const(200_000)    # ACK 광고 간격(200ms)
+
+# 디버그 비콘(항상 보이게)
+DEBUG_BEACON      = True          # 필요 시 False로 끄기
+BEACON_INT_US     = const(200_000)  # 비콘 광고 간격(200ms)
+BEACON_ON_MS      = const(300)      # 비콘 유지시간(300ms)
+BEACON_PERIOD_MS  = const(1000)     # 1초마다 한 번 비콘 ON
+
+# ===== BLE IRQ 코드 =====
+_IRQ_CENTRAL_CONNECT    = const(1)
+_IRQ_CENTRAL_DISCONNECT = const(2)
+_IRQ_GATTS_WRITE        = const(3)
+_IRQ_SCAN_RESULT        = const(5)
+_IRQ_SCAN_DONE          = const(6)
+
+# ===== 전역 상태 =====
+ble = bluetooth.BLE()
 ble.active(True)
-LED = Pin("LED", Pin.OUT)
-BEACON_PERIOD_S = 2
-last_beacon_s = 0
 
-remain = None          # 남은 초 (수신 시 갱신)
-last_rx_ms = time.ticks_ms()
-last_tick  = time.ticks_ms()
-last_ack_s = -1        # 마지막 ACK를 보낸 "초" (중복 방지)
-uid3  = unique_id()[-3:]  # 장치 식별 3바이트
-cur_dir = b'?'         # 현재 수신한 방향 한 글자
-scan_kick_ms = time.ticks_ms()
+led = Pin("LED", Pin.OUT); led.off()
 
-# ===== 유틸 =====
-def led_blink(on_ms=60, off_ms=0):
-    LED.on();  time.sleep_ms(on_ms)
-    LED.off()
-    if off_ms: time.sleep_ms(off_ms)
+last_seen_ms   = 0
+remaining_s    = 0
+direction_char = "-"
+need_ack       = 0
 
-def parse_fields(b: bytes):
-    """AD 구조 파싱: {type: [values...]}"""
-    i = 0; out = {}; ln = len(b)
-    while i < ln:
-        L = b[i]
-        if L == 0 or i + L >= ln:
+# 타이머들
+tick_timer    = Timer(-1)
+scan_timer    = Timer(-1)
+ack_timer     = Timer(-1)
+beacon_timer  = Timer(-1)
+beacon_off_t  = Timer(-1)
+
+# 디바이스 ID(하위 3바이트)
+_uid = unique_id()
+uid3 = _uid[-3:]
+uid3_hex = ubinascii.hexlify(uid3).upper()
+
+def _now(): return time.ticks_ms()
+def _elapsed(since): return time.ticks_diff(_now(), since)
+
+# ----- ADV 이름/축약이름 파서 (0x09/0x08) -----
+def _get_name_any(adv_data: bytes) -> str:
+    i = 0
+    ln = len(adv_data)
+    while i + 1 < ln:
+        length = adv_data[i]
+        if length == 0:
             break
-        t = b[i+1]
-        v = b[i+2:i+1+L]
-        out.setdefault(t, []).append(v)
-        i += 1 + L
-    return out
-
-def parse_center_adv(adv: bytes):
-    """0x09(Local Name)에서 'S:..|D:..|Q:..' 추출"""
-    s = None; d = None; q = 0
-    f = parse_fields(adv)
-    if 0x09 in f:
-        for v in f[0x09]:
+        atype = adv_data[i+1]
+        if atype in (0x09, 0x08):  # Complete Local Name / Shortened Local Name
+            name_bytes = adv_data[i+2 : i+1+length]
             try:
-                txt = v.decode()
-                for p in txt.split('|'):
-                    if p.startswith("S:"):
-                        digits = ''.join(ch for ch in p[2:] if ch.isdigit())
-                        if digits:
-                            s = max(0, min(99, int(digits)))
-                    elif p.startswith("D:") and len(p) >= 3:
-                        d = p[2:3].encode()
-                    elif p.startswith("Q:"):
-                        q = 1 if p.endswith("1") else 0
+                return name_bytes.decode("utf-8")
             except:
-                pass
-    return s, d, q
+                return ""
+        i += 1 + length
+    return ""
 
-def adv_payload_service_data(uuid16, data: bytes):
-    """0x16(Service Data) 페이로드 구성 + 플래그(0x01,0x06)"""
-    p = bytearray()
-    p += b"\x02\x01\x06"
-    p += bytes((len(data)+3, 0x16, uuid16 & 0xFF, (uuid16>>8) & 0xFF))
-    p += data
-    return bytes(p)
-
-def send_ack_once(direction: bytes):
-    """ACK 한 번 송신 (실제로는 ACK_DUR_S 동안 여러 프레임 송출)"""
-    data = b'P' + uid3 + (direction[:1] if direction else b'?')
-    payload = adv_payload_service_data(ACK_UUID16, data)
+def _parse_name(name: str):
+    # 기대 포맷: "S:15|D:A|Q:1"
     try:
-        ble.gap_advertise(ACK_ADV_US, payload)
-        time.sleep(ACK_DUR_S)
+        parts = name.split("|")
+        s = int(parts[0].split(":")[1])
+        d = parts[1].split(":")[1]
+        q = int(parts[2].split(":")[1])
+        return s, d, q
+    except:
+        return None
+
+# ----- Service Data(0x16, UUID=0xFFFF) 빌더 -----
+def _build_sd_payload(raw: bytes) -> bytes:
+    # Flags
+    flags = b"\x02\x01\x06"
+    # Service Data (len, type=0x16, uuid=0xffff, payload)
+    sd = bytes([1 + 2 + len(raw), 0x16]) + b"\xff\xff" + raw
+    return flags + sd
+
+def _stop_adv_and_resume_scan(_t=None):
+    try:
+        ble.gap_advertise(None)
     except:
         pass
-    finally:
-        try:
-            ble.gap_advertise(None)
-        except:
-            pass
+    _start_scan()
 
-# ===== IRQ =====
-def bt_irq(event, data):
-    global remain, last_rx_ms, cur_dir, last_ack_s
-    # _IRQ_SCAN_RESULT = 5 (MicroPython BLE 이벤트 값)
-    if event == 5:
-        _addr_type, _addr, _adv_type, _rssi, adv_data = data
-        s, d, q = parse_center_adv(bytes(adv_data))
-        if s is not None:
-            remain = s
-            if d: cur_dir = d
-            last_rx_ms = time.ticks_ms()
-            if q == 1:
-                now_s = time.time()
-                if now_s != last_ack_s:
-                    last_ack_s = now_s
-                    send_ack_once(cur_dir)
-
-# ===== 스캔 시작 =====
-ble.irq(bt_irq)
-def start_scan():
+# ----- ACK 송신: 'P'+uid3+'|'+D -----
+def _send_ack(direction: str):
+    payload = b'P' + uid3 + b'|' + direction.encode()[:1]
+    adv = _build_sd_payload(payload)
     try:
-        ble.gap_scan(0, SCAN_WIN_US, SCAN_INT_US)            # 무한 스캔
+        ble.gap_scan(None)  # 스캔 잠시 중단
     except:
+        pass
+    # 중앙이 광고→스캔으로 넘어갈 시간을 조금 확보
+    time.sleep_ms(ACK_DELAY_MS)
+    try:
+        ble.gap_advertise(ADV_INT_US, adv_data=adv)
+        # 일정 시간 후 광고 중단 + 스캔 재개
+        ack_timer.init(mode=Timer.ONE_SHOT, period=ACK_BURST_MS, callback=_stop_adv_and_resume_scan)
+    except:
+        _start_scan()
+
+# ----- 디버그 비콘: 'C'+uid3 -----
+def _beacon_on(_t=None):
+    if not DEBUG_BEACON:
+        return
+    try:
+        ble.gap_scan(None)
+    except:
+        pass
+    try:
+        adv = _build_sd_payload(b'C' + uid3)
+        ble.gap_advertise(BEACON_INT_US, adv_data=adv)
+        # BEACON_ON_MS 후 광고 중단 & 스캔 재개
+        beacon_off_t.init(mode=Timer.ONE_SHOT, period=BEACON_ON_MS, callback=_stop_adv_and_resume_scan)
+    except:
+        _start_scan()
+
+# ----- BLE IRQ -----
+def _ble_irq(event, data):
+    global last_seen_ms, remaining_s, direction_char, need_ack
+    if event == _IRQ_SCAN_RESULT:
+        addr_type, addr, adv_type, rssi, adv_data = data
+        name = _get_name_any(adv_data)
+        if not name:
+            return
+        parsed = _parse_name(name)
+        if not parsed:
+            return
+
+        S, D, Q = parsed
+        last_seen_ms   = _now()
+        remaining_s    = max(0, int(S))
+        direction_char = (D or "-")[:1]
+        need_ack       = 1 if Q == 1 else 0
+
+        if need_ack:
+            _send_ack(direction_char)
+
+    elif event == _IRQ_SCAN_DONE:
+        # 주기적 재시작 타이머가 있어 별도 처리 불필요
+        pass
+
+ble.irq(_ble_irq)
+
+# ----- 스캔 제어 -----
+def _start_scan():
+    try:
+        ble.gap_scan(RESTART_MS, SCAN_INT_US, SCAN_WIN_US, True)  # active scan
+    except:
+        time.sleep_ms(100)
         try:
-            ble.gap_scan(0xFFFFFFFF, SCAN_WIN_US, SCAN_INT_US)  # 보정
+            ble.gap_scan(RESTART_MS, SCAN_INT_US, SCAN_WIN_US, True)
         except:
             pass
 
-start_scan()
+def _scan_watchdog(_t=None):
+    try:
+        ble.gap_scan(None)
+    except:
+        pass
+    _start_scan()
 
-# 부팅 확인 깜빡
-for _ in range(2):
-    led_blink(200, 300)
+# ----- 1Hz 틱: LED/카운트다운 -----
+def _tick(_t=None):
+    global remaining_s
+    if last_seen_ms == 0:
+        led.off()
+        return
+    if _elapsed(last_seen_ms) > TIMEOUT_MS:
+        led.off()
+        return
 
-# ===== 메인 루프 =====
-while True:
-    now = time.ticks_ms()
+    if remaining_s > 0:
+        remaining_s -= 1
 
-    # (안전장치) 주기적으로 스캔 재시작
-    if time.ticks_diff(now, scan_kick_ms) > SCAN_KICK_MS:
-        scan_kick_ms = now
-        try: ble.gap_scan(None)
-        except: pass
-        start_scan()
+    led.on()
+    time.sleep_ms(100)
+    led.off()
 
-    age = time.ticks_diff(now, last_rx_ms)
+# ===== 초기화 =====
+_start_scan()
+tick_timer.init(mode=Timer.PERIODIC, period=1000, callback=_tick)
+scan_timer.init(mode=Timer.PERIODIC, period=RESTART_MS, callback=_scan_watchdog)
+if DEBUG_BEACON:
+    beacon_timer.init(mode=Timer.PERIODIC, period=BEACON_PERIOD_MS, callback=_beacon_on)
 
-    if remain is not None and age < TIMEOUT_MS:
-        # 1초당 1 감소 + ACK(초당 1회)
-        if time.ticks_diff(now, last_tick) >= 1000:
-            last_tick = now
-            if remain > 0:
-                remain -= 1
-            led_blink(60)
-            ns = time.time()
-            if ns != last_ack_s:
-                last_ack_s = ns
-                send_ack_once(cur_dir)
-        else:
-            time.sleep_ms(50)
-    else:
-        # 수신 끊김 표시: 느린 깜빡이
-        remain = None
-        led_blink(60, 440)
-        # 대기 비콘: BEACON_PERIOD_S 주기로 한 번 ACK 송출
-        ns = time.time()
-        if ns - last_beacon_s >= BEACON_PERIOD_S:
-            last_beacon_s = ns
-            # 마지막 방향 정보가 없으면 '?' 전송
-            send_ack_once(cur_dir)
+print("[PicoW] ready. UID3=", uid3_hex.decode(), " DEBUG_BEACON=", DEBUG_BEACON)
+
+-----------------------------
+
+빠른 확인 절차
+
+Thonny로 main.py 저장 → Ctrl+D로 리부트
+
+스마트폰 nRF Connect에서 스캔 → Service Data 0xFFFF가 주기적으로(C) 보여야 정상
+
+라즈베리에서:
+
+sudo /home/codestudio/bleenv/bin/python /home/codestudio/COS/central_scan.py
+
+→ C UID3=...가 떠야 함 (ACK는 중앙 트리거 쏘면 P로 뜸)
