@@ -4,7 +4,7 @@ from machine import Pin, Timer, unique_id
 import bluetooth, ubinascii
 import utime as time
 
-TEST_FORCE_ACK = True   # 진단용: 비콘 시 ACK(P)도 잠깐 송출
+TEST_FORCE_ACK = False   # 진단용: 비콘 시 ACK(P)도 잠깐 송출
 DEBUG_BEACON   = True   # 디버그 비콘 ON
 
 # ===== 설정/튜닝 =====
