@@ -38,20 +38,21 @@ sudo btmgmt -i hci0 power on
 ---------------------------------------------------------
 
 #!/usr/bin/env python3
-import subprocess, time, sys, signal
+# central_dual.py — hci1: continuous trigger advertising (0xFFFE), hci0: scan ACK (0xFFFF)
+
+import subprocess, sys, time, threading
 from bluepy.btle import Scanner
 
-HCI = "hci0"
+HCI_ADV  = "hci1"   # 광고 전용 (외장 동글 권장)
+HCI_SCAN = "hci0"   # 스캔 전용 (내장)
+
 S_DEFAULT = 15
 D_DEFAULT = "A"
-ADV_ON_MS = 250      # 트리거는 짧게
-SCAN_SEC  = 3.5      # 스캔은 넉넉히
 
 def run(cmd):
     return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-def bytes_to_hex_args(b: bytes):
-    # btmgmt advdata 는 "aa bb cc ..." 식으로 각 바이트를 별도 인자로 기대
+def bytes_hex_args(b: bytes):
     return [f"{x:02x}" for x in b]
 
 def build_trigger_bytes(s, d, q=1):
@@ -61,112 +62,89 @@ def build_trigger_bytes(s, d, q=1):
     sd = bytes([1 + 2 + len(payload), 0x16]) + b"\xfe\xff" + payload
     return flags + sd
 
-# ---------- btmgmt path ----------
-def adv_on_trigger_btmgmt(s, d, q=1):
-    run(["sudo", "btmgmt", "-i", HCI, "power", "on"])
-    run(["sudo", "btmgmt", "-i", HCI, "le", "on"])
-    run(["sudo", "btmgmt", "-i", HCI, "bredr", "off"])
-    run(["sudo", "btmgmt", "-i", HCI, "connectable", "off"])
-    adv = build_trigger_bytes(s, d, q)
-    args = ["sudo", "btmgmt", "-i", HCI, "advdata"] + bytes_to_hex_args(adv)
+# ---- advertiser thread on HCI_ADV ----
+def start_advertising(s, d):
+    # bring up + nonconnectable
+    run(["sudo", "btmgmt", "-i", HCI_ADV, "power", "on"])
+    run(["sudo", "btmgmt", "-i", HCI_ADV, "le", "on"])
+    run(["sudo", "btmgmt", "-i", HCI_ADV, "bredr", "off"])
+    run(["sudo", "btmgmt", "-i", HCI_ADV, "connectable", "off"])
+
+    adv = build_trigger_bytes(s, d, 1)
+    # some BlueZ requires bytes separated by spaces
+    args = ["sudo", "btmgmt", "-i", HCI_ADV, "advdata"] + bytes_hex_args(adv)
     out = run(args)
     if out.returncode != 0:
-        print("[central] btmgmt advdata error:", out.stderr.strip())
-        return False
-    run(["sudo", "btmgmt", "-i", HCI, "advertising", "on"])
-    print("[central] using btmgmt")
-    return True
+        print("[adv] btmgmt advdata error on", HCI_ADV, ":", out.stderr.strip())
+        # fallback to raw HCI
+        run(["sudo", "hciconfig", HCI_ADV, "up"])
+        # set adv params: 100ms, non-connectable
+        run(["sudo", "hcitool", "-i", HCI_ADV, "cmd", "0x08", "0x0006",
+             "a0","00","a0","00","03","00","00","00","00","00","00","00","07","00"])
+        # set adv data
+        if len(adv) > 31:
+            print("[adv] payload too long:", len(adv)); return
+        pad = bytes([0]*(31-len(adv)))
+        run(["sudo", "hcitool", "-i", HCI_ADV, "cmd", "0x08", "0x0008",
+             f"{len(adv):02x}", *bytes_hex_args(adv), *bytes_hex_args(pad)])
+        # enable adv
+        run(["sudo", "hcitool", "-i", HCI_ADV, "cmd", "0x08", "0x000a", "01"])
+        print(f"[adv] using hcitool on {HCI_ADV}")
+    else:
+        run(["sudo", "btmgmt", "-i", HCI_ADV, "advertising", "on"])
+        print(f"[adv] using btmgmt on {HCI_ADV}")
 
-def adv_off_btmgmt():
-    run(["sudo", "btmgmt", "-i", HCI, "advertising", "off"])
+def stop_advertising():
+    run(["sudo", "btmgmt", "-i", HCI_ADV, "advertising", "off"])
+    run(["sudo", "hcitool", "-i", HCI_ADV, "cmd", "0x08", "0x000a", "00"])
 
-# ---------- raw HCI (fallback) ----------
-def _hexlist(b: bytes):
-    return [f"{x:02x}" for x in b]
-
-def hci_cmd(ogf, ocf, payload_bytes):
-    return run(["sudo", "hcitool", "-i", HCI, "cmd", ogf, ocf] + _hexlist(payload_bytes))
-
-def adv_on_trigger_hci(s, d, q=1):
-    run(["sudo", "hciconfig", HCI, "up"])
-    # Set Advertising Parameters: min=max=0x00A0(100ms), type=0x03(ADV_NONCONN_IND)
-    params = bytes.fromhex("A0 00 A0 00 03 00 00 00 00 00 00 00 07 00")
-    hci_cmd("0x08", "0x0006", params)
-    # Set Advertising Data
-    adv = build_trigger_bytes(s, d, q)
-    if len(adv) > 31:
-        print("[central] adv payload too long:", len(adv)); return False
-    pad = bytes([0x00] * (31 - len(adv)))
-    hci_cmd("0x08", "0x0008", bytes([len(adv)]) + adv + pad)
-    # Enable Advertising
-    hci_cmd("0x08", "0x000A", bytes([0x01]))
-    print("[central] using hcitool fallback")
-    return True
-
-def adv_off_hci():
-    hci_cmd("0x08", "0x000A", bytes([0x00]))
-
-# ---------- scan ACK (UUID 0xFFFF: 'P'+uid3+'|'+D) ----------
+# ---- scan & parse ACK on HCI_SCAN ----
 def parse_service_data_hex(hexstr):
     try:
         b = bytes.fromhex(hexstr)
-        if len(b) < 2 or b[0:2] != b'\xff\xff': return None
+        if len(b) < 2 or b[0:2] != b'\xff\xff': return None  # UUID 0xFFFF
         p = b[2:]
-        if len(p) < 5 or p[0] != 0x50 or p[4] != 0x7C: return None
+        if len(p) < 5 or p[0] != 0x50 or p[4] != 0x7C: return None  # 'P'..'|'
         uid3 = p[1:4].hex().upper()
         direction = chr(p[5]) if len(p) >= 6 else '?'
         return {"uid3": uid3, "direction": direction}
     except:
         return None
 
-def scan_once(duration=SCAN_SEC):
-    scanner = Scanner()
-    devs = scanner.scan(duration)
-    hits = []
-    for d in devs:
-        for (adtype, desc, value) in d.getScanData():
-            if adtype == 0x16:
-                parsed = parse_service_data_hex(value)
-                if parsed:
-                    hits.append({"mac": d.addr, "rssi": d.rssi, **parsed})
-    return hits
-
-def main():
-    S = str(S_DEFAULT); D = D_DEFAULT
-    if len(sys.argv) >= 2: S = sys.argv[1]
-    if len(sys.argv) >= 3: D = sys.argv[2][:1]
-
-    print(f"[central] cycle start on {HCI}  S:{S} D:{D} (Q=1, ADV {ADV_ON_MS}ms, SCAN {SCAN_SEC}s)")
-    print("  Ctrl+C 로 종료")
-
-    def handle_sigint(sig, frame):
-        adv_off_btmgmt(); adv_off_hci()
-        print("\n[central] stopped."); sys.exit(0)
-    signal.signal(signal.SIGINT, handle_sigint)
-
+def scan_loop():
+    scanner = Scanner()  # defaults to hci0; ensure HCI_SCAN == hci0
     while True:
-        ok = adv_on_trigger_btmgmt(S, D, 1)
-        if not ok:
-            ok = adv_on_trigger_hci(S, D, 1)
-
-        time.sleep(ADV_ON_MS/1000.0)
-        adv_off_btmgmt(); adv_off_hci()
-
-        hits = scan_once(SCAN_SEC)
+        devs = scanner.scan(3.0)
+        hits = []
+        for d in devs:
+            for (adtype, desc, value) in d.getScanData():
+                if adtype == 0x16:
+                    p = parse_service_data_hex(value)
+                    if p:
+                        hits.append({"mac": d.addr, "rssi": d.rssi, **p})
         if hits:
             seen = {}
             for h in hits:
                 k = h["uid3"]
                 if k not in seen or h["rssi"] > seen[k]["rssi"]:
                     seen[k] = h
-            print(f"[central] ACK 수신 {len(seen)}대:")
+            print(f"[scan] ACK 수신 {len(seen)}대:")
             for k, h in seen.items():
                 print(f"  - UID3={h['uid3']}  D={h['direction']}  RSSI={h['rssi']}  MAC={h['mac']}")
         else:
-            print("[central] ACK 없음")
-
+            print("[scan] ACK 없음")
         time.sleep(0.5)
+
+def main():
+    S = sys.argv[1] if len(sys.argv) >= 2 else str(S_DEFAULT)
+    D = (sys.argv[2][:1] if len(sys.argv) >= 3 else D_DEFAULT)
+
+    print(f"[central-dual] adv:{HCI_ADV} scan:{HCI_SCAN}  S:{S} D:{D}  (trigger:0xFFFE, ACK:0xFFFF)")
+    start_advertising(S, D)
+    try:
+        scan_loop()
+    finally:
+        stop_advertising()
 
 if __name__ == "__main__":
     main()
--------------------
