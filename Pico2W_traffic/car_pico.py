@@ -1,5 +1,4 @@
-# car_pico.py  (MicroPython for Pico W)
-
+# car_pico.py
 from micropython import const
 from machine import unique_id
 import bluetooth, ubinascii, utime
@@ -13,39 +12,31 @@ ACK_BURST_MS   = const(600)        # ACK 송신 지속(ms)
 JITTER_MAX_MS  = const(250)        # 각 차량 지터(ms)
 
 SHOW_ONLY_MINE = True              # 내 방향일 때만 출력
-ALWAYS_ACK     = True              # 테스트용: Q 없어도 1Hz로 ACK (운영 시 False 권장)
+ALWAYS_ACK     = True              # 테스트용: Q 없어도 1Hz로 ACK (운영 시 False)
 
-# ===== BLE 초기화 & 내 UID6 =====
+# ===== BLE 초기화 & UID =====
 ble = bluetooth.BLE()
 ble.active(True)
-_my_uid_hex = ubinascii.hexlify(unique_id()).decode().upper()
-my_uid6     = _my_uid_hex[-6:]     # 예: 'B3C827'
+my_uid6 = ubinascii.hexlify(unique_id()).decode().upper()[-6:]  # 예: 'B3C827'
 
-# ===== 유틸 =====
-def _jitter_ms_from_uid(uid6):
-    h = 0
-    for ch in uid6:
-        h = (h * 131 + ord(ch)) & 0xFFFF
-    return h % JITTER_MAX_MS
+# ===== 이벤트 상수 호환(펌웨어별 차이 보정) =====
+try:
+    IRQ_SCAN_RESULT = bluetooth.IRQ_SCAN_RESULT
+except AttributeError:
+    IRQ_SCAN_RESULT = const(5)   # 표준 값
 
+# ===== 광고 파서 (Service Data 0xFFFF 우선, Local Name 폴백) =====
 def _iter_ad(adv):
-    i = 0
-    L = len(adv)
+    i, L = 0, len(adv)
     while i + 1 < L:
         ln = adv[i]
         if ln == 0: break
-        t  = adv[i + 1]
-        payload = adv[i + 2 : i + 1 + ln]
-        yield t, payload
+        t = adv[i + 1]
+        yield t, adv[i + 2 : i + 1 + ln]
         i += 1 + ln
 
 def parse_controller_adv(adv_data):
-    """
-    Service Data(0x16, UUID 0xFFFF)에
-    'PH:NS|DIR:N|T:GREEN|RT:8|G:8|Q:1' 문자열이 온다고 가정.
-    (호환을 위해 Local Name(0x09)에도 동일 포맷이 있으면 파싱)
-    """
-    # 우선 0x16(0xFFFF) 시도
+    # Service Data(0x16, UUID 0xFFFF)
     try:
         for t, p in _iter_ad(adv_data):
             if t == 0x16 and len(p) >= 2 and p[0] == 0xFF and p[1] == 0xFF:
@@ -64,7 +55,7 @@ def parse_controller_adv(adv_data):
                         "Q":  int(parts.get("Q", "0") or 0),
                     }
     except: pass
-    # 폴백: Local Name(0x09)에서 동일 포맷 시도
+    # Local Name(0x09) 폴백
     try:
         for t, p in _iter_ad(adv_data):
             if t == 0x09:
@@ -90,7 +81,7 @@ state = {"PH":"", "DIR":"", "T":"RED", "RT":0, "G":0, "Q":0, "last_ms":0}
 
 # ===== IRQ =====
 def _irq(event, data):
-    if event == bluetooth.IRQ_SCAN_RESULT:
+    if event == IRQ_SCAN_RESULT:
         addr_type, addr, adv_type, rssi, adv_data = data
         info = parse_controller_adv(adv_data)
         if info:
@@ -99,23 +90,29 @@ def _irq(event, data):
 
 ble.irq(_irq)
 
+# ===== 유틸 =====
+def _jitter_ms_from_uid(uid6):
+    h = 0
+    for ch in uid6:
+        h = (h * 131 + ord(ch)) & 0xFFFF
+    return h % JITTER_MAX_MS
+
 # ===== ACK 송신 =====
 def send_ack_burst(direction="N", burst_ms=ACK_BURST_MS):
     # 0xFFFF Service Data + ASCII payload
-    payload_str = "P|D:{}|UID:{}|C:1".format(direction, my_uid6)
-    payload = payload_str.encode()
-    adv_sd = bytes([len(payload) + 3, 0x16, 0xFF, 0xFF]) + payload
+    payload = "P|D:{}|UID:{}|C:1".format(direction, my_uid6).encode()
+    adv_sd  = bytes([len(payload) + 3, 0x16, 0xFF, 0xFF]) + payload
 
-    # 지터로 충돌 완화
+    # 지터로 동시 충돌 완화
     utime.sleep_ms(_jitter_ms_from_uid(my_uid6))
 
-    # 스캔 중지 → 광고 → 재개
+    # 스캔 중지 → 광고 시작(★ 이 펌웨어는 위치 인자 2개만 허용)
     ble.gap_scan(None)
-    # MicroPython은 키워드 인자 미지원: 위치 인자만
-    ble.gap_advertise(ADV_INT_US, adv_sd, None, False)
+    ble.gap_advertise(ADV_INT_US, adv_sd)   # ← 두 인자만!
     utime.sleep_ms(burst_ms)
     ble.gap_advertise(None)
-    # (duration_ms, interval_us, window_us) 순서
+
+    # 스캔 재개 (duration_ms, interval_us, window_us)
     ble.gap_scan(0, SCAN_INT_US, SCAN_WIN_US)
 
 # ===== 메인 =====
@@ -128,7 +125,6 @@ def main(direction="N"):
 
     while True:
         now = utime.ticks_ms()
-
         mine = (state["DIR"] == direction) if state["DIR"] else True
         want_ack = (ALWAYS_ACK or state["Q"] == 1)
 
@@ -146,5 +142,5 @@ def main(direction="N"):
 
         utime.sleep_ms(50)
 
-# 부팅 자동 실행용 (원하면 주석 처리)
-# main("N")
+# 부팅 자동 실행 시:
+# import car_pico; car_pico.main("N")
