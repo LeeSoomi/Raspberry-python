@@ -13,6 +13,9 @@ import bluetooth
 import ubinascii
 import utime as time
 
+
+TEST_FORCE_ACK = True   # 진단용: 비콘 때 P(ACK)도 함께 송출
+
 # ===== 설정/튜닝 =====
 # 스캔 동작
 TIMEOUT_MS    = const(6000)       # 마지막 수신 후 표시 유지 타임아웃
@@ -140,6 +143,14 @@ def _beacon_on(_t=None):
         beacon_off_t.init(mode=Timer.ONE_SHOT, period=BEACON_ON_MS, callback=_stop_adv_and_resume_scan)
     except:
         _start_scan()
+    try:
+        adv = _build_sd_payload(b'C' + uid3)
+        ble.gap_advertise(BEACON_INT_US, adv_data=adv)
+        if TEST_FORCE_ACK:
+            # 비콘과 함께 ACK도 추가로 짧게 한 번 더 송출
+            ack = _build_sd_payload(b'P' + uid3 + b'|' + direction_char.encode()[:1] if direction_char else b'P' + uid3 + b'|A')
+            time.sleep_ms(50)
+            ble.gap_advertise(ADV_INT_US, adv_data=ack)
 
 # ----- BLE IRQ -----
 def _ble_irq(event, data):
