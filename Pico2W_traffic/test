@@ -47,14 +47,15 @@ sudo btmgmt -i $IF power on
 
 피코는 현재 “이름/축약이름” 파싱하므로 이 방식이 바로 먹힙니다.
 
-# hci1 광고 준비
+# hci1 준비
 sudo hciconfig hci1 up
-# 광고 파라미터: 100ms, Non-Connectable
 sudo hcitool -i hci1 cmd 0x08 0x0006  a0 00  a0 00  03 00  00 00 00 00 00 00  07 00
-# 광고 데이터: Flags + Complete Local Name "S:15|D:A|Q:1"
+
+# S:15|D:A|Q:1  (이름 광고)
 sudo hcitool -i hci1 cmd 0x08 0x0008  \
   11  02 01 06  0D 09  53 3a 31 35 7c 44 3a 41 7c 51 3a 31  \
   00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
 # 광고 시작
 sudo hcitool -i hci1 cmd 0x08 0x000a 01
 
