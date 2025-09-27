@@ -5,28 +5,24 @@ import time, json, os, re
 TARGET_DIR = "N"                          # "N","E","S","W"
 PHASE_MAP  = {"N":"NS","S":"NS","E":"EW","W":"EW"}
 
-# ===== 시간 설정 =====
-G_FIXED = 8                               # GREEN은 항상 8초
-YELLOW  = 2
-ALL_RED = 1
+# ===== 시간/판정 =====
+G_BASE = 5
+G_EXT  = 8                                # 대기 15초 동안 ≥3대면 다음 GREEN을 8초로
+YELLOW = 2
+ALL_RED= 1
+DECISION_WINDOW_SEC = 15.0                # ← '대기시간' 창
 
-# 인식 안정화(윈도우/히트)
-WINDOW_SEC = 4.0                          # 최근 윈도우(초)
-MIN_HITS   = 2                            # 같은 UID가 윈도우 내 최소 히트 수
-
-# ACK 요청 정책
-ALWAYS_ACK = True                         # 모든 상태에서 Q=1로 광고
-
-# ===== 차량 이름 레지스트리 =====
+# 이름 레지스트리 저장 파일
 REG_PATH = "car_names.json"
 IDX_PAT  = re.compile(r"차량\s*(\d+)")
 
-def load_registry(path=REG_PATH):
-    if os.path.exists(path):
+def load_registry():
+    if os.path.exists(REG_PATH):
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(REG_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, dict): return data
+                if isinstance(data, dict):
+                    return data
         except Exception as e:
             print("[WARN] car_names.json 로드 실패:", e)
     return {}   # {"B3C827": "C  차량1  UID3=B3C827", ...}
@@ -55,20 +51,24 @@ def name_for_uid(uid_hex, reg):
 
 # ===== ACK 버스 =====
 class AckBus:
-    def __init__(self): self.buf = deque()  # (t, dir, uid6hex)
-    def push(self, direction, uid_hex): self.buf.append((time.time(), direction, uid_hex.upper()))
-    def _recent(self, window=WINDOW_SEC):
-        now = time.time()
-        return [(t,d,u) for (t,d,u) in list(self.buf) if now - t <= window]
-    def recent_uid_hits(self, window=WINDOW_SEC):
-        rec = self._recent(window)
-        hits = defaultdict(lambda: defaultdict(int))   # hits[dir][uid] = count
-        for _, d, u in rec: hits[d][u] += 1
-        return hits
+    """대기 구간에서 들어온 ACK를 버퍼에 저장 (t, dir, uid)"""
+    def __init__(self): self.buf = deque()
 
-# ===== 콘솔 브로드캐스터(시뮬) =====
+    def push(self, direction, uid_hex):
+        self.buf.append((time.time(), direction, uid_hex.upper()))
+
+    def recent_uids(self, direction, window_sec):
+        """최근 window_sec 내에 들어온 고유 UID 집합(해당 방향만)"""
+        now = time.time()
+        return {
+            u for (t, d, u) in list(self.buf)
+            if d == direction and (now - t) <= window_sec
+        }
+
+# ===== 콘솔 광고(시뮬) =====
 class Broadcaster:
     def advertise(self, ph, dir_letter, state, rt, g, q_flag):
+        # 차량은 여기서 RT/G/Q를 수신한다고 가정 (실 BLE로 교체 가능)
         print(f"[ADV] PH:{ph}|DIR:{dir_letter}|T:{state}|RT:{rt}|G:{g}|Q:{int(q_flag)}")
 
 # ===== 컨트롤러 =====
@@ -79,55 +79,58 @@ class Controller:
         self.dir = TARGET_DIR
         self.state = "GREEN"           # GREEN -> YELLOW -> RED
         self.rt = 0
-        self.g_alloc = G_FIXED
+        self.g_alloc = G_BASE
         self.registry = load_registry()
 
-    def _valid_uids(self):
-        hits_by_dir = self.bus.recent_uid_hits(WINDOW_SEC)
-        my_hits = hits_by_dir.get(self.dir, {})
-        valid = sorted([u for u,h in my_hits.items() if h >= MIN_HITS])
-        return valid, my_hits
-
     def start_green(self):
-        self.g_alloc = G_FIXED         # ✅ 항상 8초
+        # 지난 '대기 15초' 동안 들어온 고유 차량으로 다음 GREEN 결정
+        uids = self.bus.recent_uids(self.dir, DECISION_WINDOW_SEC)
+        q = len(uids)
+        self.g_alloc = G_EXT if q >= 3 else G_BASE
         self.rt = self.g_alloc
+
+        # 보기 좋게 이름도 출력
+        names = ", ".join([name_for_uid(u, self.registry) for u in sorted(uids)]) or "-"
+        print(f"[DBG] wait_window={DECISION_WINDOW_SEC:.0f}s, cars={q}, nextG={self.g_alloc}, names=[{names}]")
 
     def next_phase(self):
         if self.state == "GREEN":
             self.state = "YELLOW"; self.rt = YELLOW
         elif self.state == "YELLOW":
             self.state = "RED";    self.rt = ALL_RED
-        else:
+        else:                       # RED → 같은 방향 GREEN
             self.state = "GREEN";  self.start_green()
 
     def tick(self):
         if self.rt <= 0:
             self.next_phase()
 
-        # 표시/광고용 집계
-        valid, hits = self._valid_uids()
-        q = len(valid)
-        names_str = ", ".join([name_for_uid(u, self.registry) for u in valid]) or "-"
-
-        # 광고(차량이 RT를 받도록 항상 송신)
+        # 대기(노란/빨간) 동안에만 차량들이 ACK 보내게 Q=1
         ph = PHASE_MAP[self.dir]
-        q_flag = True if ALWAYS_ACK else (self.state == "GREEN")
+        q_flag = (self.state != "GREEN")
         self.bc.advertise(ph, self.dir, self.state, self.rt, self.g_alloc, q_flag)
 
-        # 콘솔 표시: 상태 + 남은시간 + 대수 + 이름
-        print(f"{self.state:<6} RT:{self.rt}s  cars:{q}  names:[{names_str}]")
+        # 표시는 상태/남은 시간/대수/이름
+        uids = self.bus.recent_uids(self.dir, DECISION_WINDOW_SEC)
+        q = len(uids)
+        names = ", ".join([name_for_uid(u, self.registry) for u in sorted(uids)]) or "-"
+        print(f"{self.state:<6} RT:{self.rt}s  cars:{q}  names:[{names}]")
 
         self.rt -= 1
 
 def run_sim():
     ctrl = Controller()
-    # --- 데모 트래픽: 실제 Pico에서는 central_scan → bus.push 로 대체 ---
-    demo_uids = ["B3C827","3F06FE","CA8756"]  # 예시 3대
+
+    # === 데모 트래픽 (실 Pico 사용 시 central_scan → ctrl.bus.push 로 대체) ===
+    demo_uids = ["B3C827","3F06FE","CA8756"]  # 3대 예시
+
     while True:
-        # ★ 실제 상황처럼 매초 모든 차량이 동시에 ACK
-        for uid in demo_uids:
-            ctrl.bus.push(TARGET_DIR, uid)
+        # 실제처럼 'Q=1일 때 모든 차량이 동시에 1Hz ACK'를 가정
+        # (tick 내부에서 상태/RT와 Q가 결정되므로, tick 후에 push)
         ctrl.tick()
+        if ctrl.state != "GREEN":                 # 대기 구간에만 ACK 발생
+            for uid in demo_uids:
+                ctrl.bus.push(TARGET_DIR, uid)
         time.sleep(1)
 
 if __name__ == "__main__":
