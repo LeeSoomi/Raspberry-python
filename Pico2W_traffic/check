@@ -1,10 +1,21 @@
-1) 준비(라즈베리)
-sudo apt update
-sudo apt install -y python3-pip bluez bluez-hcidump
-pip3 install bluepy
-# bluepy가 raw소켓을 쓰므로 sudo로 실행하는 게 가장 간단
+1) 시스템 의존성(bluepy 빌드용) 설치
+sudo apt-get update
+sudo apt-get install -y libglib2.0-dev python3-dev gcc
+
+2) bluepy를 bleenv에 설치
+/home/codestudio/bleenv/bin/pip install --upgrade pip setuptools wheel
+/home/codestudio/bleenv/bin/pip install bluepy
+
+3) 설치 확인
+/home/codestudio/bleenv/bin/python -c "import sys, bluepy; print(sys.executable); print(bluepy.__file__)"
 
 
+출력 경로가 /home/codestudio/bleenv/... 아래여야 정상.
+
+4) 실행 (중요: 가상환경의 python을 sudo로 직접 지정)
+sudo /home/codestudio/bleenv/bin/python /home/codestudio/COS/central_cycle.py
+# 또는 인자:
+sudo /home/codestudio/bleenv/bin/python /home/codestudio/COS/central_cycle.py 12 B
 Bluetooth 초기화(한 번만):
 
 sudo btmgmt -i hci0 power off
