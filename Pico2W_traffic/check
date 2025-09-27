@@ -38,54 +38,66 @@ sudo btmgmt -i hci0 power on
 ---------------------------------------------------------
 
 # central_cycle.py
+#!/usr/bin/env python3
+# central_cycle.py — trigger via Service Data (UUID 0xFFFE), scan ACK (UUID 0xFFFF)
 
 import subprocess, time, sys, signal
 from bluepy.btle import Scanner
 
 HCI = "hci0"
-S_DEFAULT = 15          # 초
-D_DEFAULT = "A"         # 방향 문자 1글자
-ADV_ON_MS = 800         # 광고 유지 시간(ms)
-SCAN_SEC = 2.0          # 스캔 시간(s)
+
+S_DEFAULT = 15      # seconds
+D_DEFAULT = "A"     # one char
+ADV_ON_MS = 300     # advertise trigger briefly
+SCAN_SEC  = 3.0     # scan long enough to catch ACK
 
 def run(cmd):
-    # 편의용: subprocess 호출
     return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-def adv_on(name_str):
-    # btmgmt로 Complete Local Name 세팅 후 광고 ON
-    # name 은 LE 광고 데이터의 Complete Local Name으로 들어간다.
+# ---- build raw ADV data: Flags + Service Data(0xFFFE) with ascii "S:..|D:..|Q:1"
+def build_advdata_trigger(s, d, q=1):
+    # Flags 0x01:0x06 = LE General Disc + BR/EDR not supported
+    flags = bytes.fromhex("02 01 06")
+    payload = f"S:{s}|D:{d}|Q:{q}".encode()
+    # AD: len, type=0x16(Service Data 16-bit), UUID=0xFFFE (little endian), payload
+    sd = bytes([1 + 2 + len(payload), 0x16]) + b"\xfe\xff" + payload
+    adv = flags + sd
+    return adv.hex()
+
+def adv_on_trigger(s, d, q=1):
+    # Prepare controller state
     run(["sudo", "btmgmt", "-i", HCI, "power", "on"])
-    run(["sudo", "btmgmt", "-i", HCI, "name", name_str])
-    # Non-connectable, scannable advertising
+    run(["sudo", "btmgmt", "-i", HCI, "le", "on"])
+    run(["sudo", "btmgmt", "-i", HCI, "bredr", "off"])
+    run(["sudo", "btmgmt", "-i", HCI, "connectable", "off"])
+    # Set raw advertising data
+    hexdata = build_advdata_trigger(s, d, q)
+    out = run(["sudo", "btmgmt", "-i", HCI, "advdata", hexdata])
+    if out.returncode != 0:
+        print("[central] btmgmt advdata error:", out.stderr.strip())
+    # Start advertising (non-connectable)
     run(["sudo", "btmgmt", "-i", HCI, "advertising", "on"])
 
 def adv_off():
     run(["sudo", "btmgmt", "-i", HCI, "advertising", "off"])
 
+# ---- parse ACK from Pico: Service Data (UUID 0xFFFF) = 'P' + uid3 + '|' + D
 def parse_service_data_hex(hexstr):
-    """
-    bluepy가 Service Data를 hex 문자열로 준다.
-    기대 형식: ffff <payload...>
-    payload: 0x50('P') + uid3(3바이트) + 0x7C('|') + D(1바이트 문자)
-    """
     try:
         b = bytes.fromhex(hexstr)
         if len(b) < 2: return None
-        uuid_le = b[0:2]     # b'\xff\xff'
-        if uuid_le != b'\xff\xff':
+        if b[0:2] != b'\xff\xff':  # UUID 0xFFFF
             return None
         payload = b[2:]
-        if len(payload) < 5:  # P + uid3 + '|'
+        if len(payload) < 5:  # 'P' + uid3 + '|'
             return None
-        if payload[0] != 0x50:   # 'P'
+        if payload[0] != 0x50:  # 'P'
             return None
-        uid3 = payload[1:4]      # 3 bytes
-        if payload[4] != 0x7C:   # '|'
+        uid3 = payload[1:4]
+        if payload[4] != 0x7C:  # '|'
             return None
         direction = chr(payload[5]) if len(payload) >= 6 else '?'
-        uid_hex = uid3.hex().upper()
-        return {"uid3": uid_hex, "direction": direction}
+        return {"uid3": uid3.hex().upper(), "direction": direction}
     except Exception:
         return None
 
@@ -95,8 +107,7 @@ def scan_once(duration=SCAN_SEC):
     hits = []
     for dev in devices:
         for (adtype, desc, value) in dev.getScanData():
-            # 0x16 = Service Data (16-bit UUID)
-            if adtype == 0x16:
+            if adtype == 0x16:  # Service Data (16-bit)
                 parsed = parse_service_data_hex(value)
                 if parsed:
                     hits.append({
@@ -108,7 +119,6 @@ def scan_once(duration=SCAN_SEC):
     return hits
 
 def main():
-    # 인자: S D (옵션)
     S = str(S_DEFAULT)
     D = D_DEFAULT
     if len(sys.argv) >= 2: S = sys.argv[1]
@@ -124,16 +134,14 @@ def main():
     signal.signal(signal.SIGINT, handle_sigint)
 
     while True:
-        # 1) 광고로 트리거 (Q=1)
-        name_str = f"S:{S}|D:{D}|Q:1"
-        adv_on(name_str)
+        # 1) trigger (Service Data 0xFFFE: 'S:..|D:..|Q:1')
+        adv_on_trigger(S, D, 1)
         time.sleep(ADV_ON_MS/1000.0)
         adv_off()
 
-        # 2) 스캔하여 ACK 수집
+        # 2) scan ACK (Service Data 0xFFFF: 'P'+uid3+'|'+D)
         hits = scan_once(SCAN_SEC)
         if hits:
-            # 같은 uid3 여러 번 온 경우 uid3 기준으로 대표만 출력
             seen = {}
             for h in hits:
                 k = h["uid3"]
@@ -145,7 +153,6 @@ def main():
         else:
             print("[central] ACK 없음")
 
-        # 루프 텀(원하면 조절)
         time.sleep(0.5)
 
 if __name__ == "__main__":
@@ -153,8 +160,3 @@ if __name__ == "__main__":
 
 ------------------------------------------------
 
-실행:
-
-sudo python3 central_cycle.py            # 기본 S=15, D='A'
-# 또는
-sudo python3 central_cycle.py 12 B       # S=12, D='B'
