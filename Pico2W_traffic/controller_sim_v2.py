@@ -1,25 +1,31 @@
 #!/usr/bin/env python3
+# controller_sim.py
 from collections import deque, defaultdict
-import time, json, os, re, threading
-import central_scan  # on_seen(direction:str, uid_hex:str) 콜백 호출
+import time, json, os, re, threading, subprocess
+import central_scan  # 스캔 쓰레드를 내부에서 자동 실행
+
+# ===== 어댑터 지정 =====
+SCAN_IFACE = 0          # hci0 (내장)  ← 스캔
+ADV_IFACE  = "hci1"     # hci1 (외장)  ← 광고
 
 # ===== 방향/페이즈 =====
 DIRS = ["N", "E", "S", "W"]
-PHASE_MAP = {"N":"NS","S":"NS","E":"EW","W":"EW"}  # 광고/표시 용
+PHASE_MAP = {"N":"NS","S":"NS","E":"EW","W":"EW"}
 
 # ===== 시간/정책 =====
 MIN_GREEN = 4
 BASE_GREEN = 5
 MAX_GREEN = 8
-EXTRA_PER_HEAVY = 3          # 혼잡방향 요청(+3초)
+EXTRA_PER_HEAVY = 3          # 혼잡 요청(+3)
 YELLOW = 2
-ALL_RED = 1                   # 페이즈 전환 클리어타임
-DECISION_WINDOW_SEC = 15.0    # 혼잡 판정을 위한 최근 윈도우
+ALL_RED = 1
+DECISION_WINDOW_SEC = 15.0   # 혼잡 판정 창(초)
+ADV_INTERVAL_MS = 100        # 광고 간격(0.625ms 단위 환산됨)
 
-# ===== 우대/공정성 파라미터 =====
-MAX_FAV_STREAK = 3            # 같은 방향 연속 우대 한도
-HYSTERESIS = True             # ≥3 진입/이탈에 1사이클 지연
-BACKLOG_DECAY = 1             # 비혼잡/무우대 시 크레딧 자연감쇠
+# ===== 공정성/안정성 =====
+MAX_FAV_STREAK = 3
+HYSTERESIS = True
+BACKLOG_DECAY = 1
 
 # ===== 이름 레지스트리 =====
 REG_PATH = "car_names.json"
@@ -55,16 +61,15 @@ def name_for_uid(uid_hex, reg):
     except: pass
     return label
 
-# ===== 버스(스레드 세이프) : 모든 방향 수신 =====
+# ===== 수집 버스 =====
 class AckBus:
     def __init__(self):
-        self.buf = deque()           # (t, dir, uid6)
+        self.buf = deque()  # (t, dir, uid6)
         self.lock = threading.Lock()
 
     def push(self, direction, uid_hex):
-        t = time.time()
         with self.lock:
-            self.buf.append((t, direction, uid_hex.upper()))
+            self.buf.append((time.time(), direction, uid_hex.upper()))
 
     def recent_uids(self, direction, window_sec):
         now = time.time()
@@ -74,64 +79,108 @@ class AckBus:
                 self.buf.popleft()
             return {u for (t,d,u) in self.buf if d==direction and (now - t) <= window_sec}
 
-# ===== 브로드캐스터(시뮬 출력) =====
-class Broadcaster:
-    def advertise(self, ph, dir_letter, state, rt, g, q_flag):
-        # 실제 BLE 광고 송출 버전이 필요하면 여기 교체 (이 버전은 콘솔만)
-        print(f"[ADV] PH:{ph}|DIR:{dir_letter}|T:{state}|RT:{rt}|G:{g}|Q:{int(q_flag)}")
+# ===== HCI 저수준 광고기 (외장 hci1) =====
+class HCIAdvertiser:
+    """
+    BlueZ hcitool로 0xFFFF Service Data 광고.
+    sudo 권장. 광고 데이터 ≤31B.
+    """
+    def __init__(self, iface=ADV_IFACE, interval_ms=ADV_INTERVAL_MS):
+        self.iface = iface
+        self.units = int(interval_ms / 0.625)  # 0.625ms 단위
+        self.started = False
+        self._setup_adapter()
 
-# ===== 컨트롤러(4방향) =====
+    def _run(self, ogf_hex, ocf_hex, payload_bytes):
+        cmd = ["sudo", "hcitool", "-i", self.iface, "cmd", ogf_hex, ocf_hex]
+        cmd += [f"{b:02x}" for b in payload_bytes]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def _setup_adapter(self):
+        subprocess.run(["sudo", "rfkill", "unblock", "bluetooth"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["sudo", "hciconfig", self.iface, "up"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Set Adv Params (0x08,0x0006)
+        u = self.units
+        params = [
+            u & 0xFF, (u >> 8) & 0xFF,    # min
+            u & 0xFF, (u >> 8) & 0xFF,    # max
+            0x03,                         # ADV_NONCONN_IND
+            0x00,                         # OwnAddr: Public
+            0x00,                         # DirectAddrType
+            0x00,0x00,0x00,0x00,0x00,0x00,# DirectAddr
+            0x07,                         # Channel map
+            0x00                          # Filter policy
+        ]
+        self._run("0x08", "0x0006", params)
+        # Enable Advertising (0x08,0x000A)
+        self._run("0x08", "0x000A", [0x01])
+        self.started = True
+
+    def update(self, dir_letter, state_str, rt, q_flag):
+        # Service Data payload (문자열)
+        payload = f"DIR:{dir_letter}|T:{state_str}|RT:{int(rt)}|Q:{1 if q_flag else 0}".encode()
+        sd = bytes([len(payload)+3, 0x16, 0xFF, 0xFF]) + payload
+        if len(sd) > 31:
+            # 길면 상태 약어
+            s_short = {"GREEN":"G","YELLOW":"Y","RED":"R","ALLRED":"A"}.get(state_str, state_str[:1])
+            payload = f"DIR:{dir_letter}|T:{s_short}|RT:{int(rt)}|Q:{1 if q_flag else 0}".encode()
+            sd = bytes([len(payload)+3, 0x16, 0xFF, 0xFF]) + payload
+
+        # Set Adv Data (0x08,0x0008): 길이 + 31바이트 패딩
+        pad = bytes(31 - len(sd))
+        params = bytes([len(sd)]) + sd + pad
+        self._run("0x08", "0x0008", params)
+
+# ===== 브로드캐스터 =====
+class Broadcaster:
+    def __init__(self):
+        self.hci = HCIAdvertiser(ADV_IFACE, ADV_INTERVAL_MS)
+
+    def advertise(self, ph, dir_letter, state, rt, g, q_flag):
+        # 콘솔도 남기고
+        print(f"[ADV] PH:{ph}|DIR:{dir_letter}|T:{state}|RT:{rt}|G:{g}|Q:{int(q_flag)}")
+        # 실제 광고 송출 (Pico는 DIR/T/RT/Q만 사용)
+        self.hci.update(dir_letter, state, rt, q_flag)
+
+# ===== 컨트롤러(4방향 재분배) =====
 class Controller:
     def __init__(self):
         self.bus = AckBus()
         self.bc  = Broadcaster()
         self.registry = _load_reg()
 
-        # 스케줄 상태
         self.dir_idx = 0
         self.dir = DIRS[self.dir_idx]
         self.state = "BOOT"
         self.rt = 0
 
-        # 계획값
-        self.plan_g = {d: BASE_GREEN for d in DIRS}   # 이번 사이클 GREEN
-        self.fav_streak = defaultdict(int)            # 연속 우대 횟수
-        self.backlog = defaultdict(int)               # 못 채운 요청의 크레딧
-        self.heavy_prev = {d: False for d in DIRS}    # 히스테리시스
+        self.plan_g = {d: BASE_GREEN for d in DIRS}
+        self.fav_streak = defaultdict(int)
+        self.backlog = defaultdict(int)
+        self.heavy_prev = {d: False for d in DIRS}
 
-    # 스캐너 콜백: 모든 방향 수신 (GREEN/대기와 무관하게 기록)
+    # 스캐너 콜백 (모든 방향 수신)
     def on_car_seen(self, direction, uid_hex):
         if direction not in DIRS: return
         self.bus.push(direction, uid_hex)
 
     def _count_recent(self):
-        # 각 방향 최근 윈도우 고유차량 수
         return {d: len(self.bus.recent_uids(d, DECISION_WINDOW_SEC)) for d in DIRS}
 
     def _compute_plan(self):
-        """
-        고정 주기 + 재분배:
-        - heavy(d): 최근창 ≥3 (히스테리시스 적용)
-        - 요청: heavy → +3초
-        - 도너: non-heavy → 최대 1초(= BASE - MIN)
-        - 총 도너합 한도 내에서 라운드로빈 배분(크레딧 높은 방향 우선)
-        - 부족분은 backlog로 이월, 비혼잡/무우대는 감쇠
-        """
         cnt = self._count_recent()
         heavy_now = {d: (cnt[d] >= 3) for d in DIRS}
         heavy_use = {}
         for d in DIRS:
             heavy_use[d] = (self.heavy_prev[d] or heavy_now[d]) if HYSTERESIS else heavy_now[d]
 
-        # 요청/도너 계산
         req = {d: (EXTRA_PER_HEAVY if heavy_use[d] else 0) for d in DIRS}
-        donors = {d: (BASE_GREEN - MIN_GREEN) if not heavy_use[d] else 0 for d in DIRS}  # 보통 1/0
+        donors = {d: (BASE_GREEN - MIN_GREEN) if not heavy_use[d] else 0 for d in DIRS}  # 비혼잡 1초 기부
 
-        # 연속 우대 제한 적용
+        # 연속 우대 제한
         if any(heavy_use.values()):
             for d in DIRS:
                 if heavy_use[d] and self.fav_streak[d] >= MAX_FAV_STREAK:
-                    # 다른 heavy가 있으면 이 방향은 이번 사이클 요청을 0으로 떨어뜨림
                     if sum(1 for x in DIRS if heavy_use[x] and x != d) > 0:
                         req[d] = 0
 
@@ -139,63 +188,51 @@ class Controller:
         C = sum(donors.values())
         assignable = min(R, C)
 
-        # heavy 정렬(크레딧 높은 방향 우선)
+        # 크레딧 우선 라운드로빈
         heavy_list = [d for d in DIRS if req[d] > 0]
         heavy_list.sort(key=lambda d: self.backlog[d], reverse=True)
 
         extra = {d: 0 for d in DIRS}
-        # 라운드로빈 배분(정수 초)
         i = 0
         while assignable > 0 and heavy_list:
             d = heavy_list[i % len(heavy_list)]
-            # 이 방향이 아직 최대(+3) 미만이면 1초 할당
             cap = min(req[d], MAX_GREEN - BASE_GREEN)  # 최대 +3
             if extra[d] < cap:
                 extra[d] += 1
                 assignable -= 1
             i += 1
-            # 더 줄 수 없다면 계속 돌다 자연스레 다음으로 넘어감
 
-        # 못 준 요청은 backlog로 이월, 비혼잡/무우대 감쇠
+        # 크레딧 이월/감쇠
         for d in DIRS:
             if req[d] > 0:
                 self.backlog[d] += (req[d] - extra[d])
             else:
-                # 비혼잡/요청 0인 경우 자연감쇠
                 self.backlog[d] = max(0, self.backlog[d] - BACKLOG_DECAY)
 
-        # 도너 분배: 각 non-heavy는 최대 1초 기부
+        # 도너 배분(각 non-heavy 최대 1초)
         donate_need = sum(extra.values())
-        donate_cap = donors.copy()
         donate = {d: 0 for d in DIRS}
+        donor_list = [d for d in DIRS if donors[d] > 0]
         di = 0
-        donor_list = [d for d in DIRS if donate_cap[d] > 0]
         while donate_need > 0 and donor_list:
             d = donor_list[di % len(donor_list)]
-            if donate[d] < donate_cap[d]:
+            if donate[d] < donors[d]:
                 donate[d] += 1
                 donate_need -= 1
             di += 1
 
-        # 최종 GREEN
+        # 최종 GREEN (합 20 유지)
         g = {}
         for d in DIRS:
             g_d = BASE_GREEN + extra[d] - donate[d]
             g[d] = max(MIN_GREEN, min(MAX_GREEN, g_d))
 
-        # 연속 우대 카운트 갱신
+        # 우대 카운트/히스테리시스 갱신
         for d in DIRS:
-            if extra[d] > 0:
-                self.fav_streak[d] += 1
-            else:
-                # heavy인데 못 받았으면 0으로 리셋하여 다음 배분 때 우선권 상승
-                self.fav_streak[d] = 0
-
-        # 히스테리시스 다음 기준 저장
+            self.fav_streak[d] = self.fav_streak[d] + 1 if extra[d] > 0 else 0
         self.heavy_prev = heavy_now
 
-        # 디버그
-        print(f"[PLAN] cnt={cnt} heavy={heavy_use} req={req} donors={donors} extra={extra} donate={donate} g={g} backlog={dict(self.backlog)}")
+        print(f"[PLAN] cnt={cnt} heavy={heavy_use} req={req} donors={donors} extra={extra} g={g} backlog={dict(self.backlog)}")
         return g
 
     def _names_for_dir(self, d):
@@ -203,7 +240,6 @@ class Controller:
         return ", ".join([name_for_uid(u, self.registry) for u in sorted(uids)]) or "-"
 
     def _start_cycle_if_needed(self):
-        # 한 사이클의 시작은 방향 인덱스가 0으로 돌아올 때로 정의
         if self.state == "BOOT" or (self.state == "GREEN" and self.dir_idx == 0 and self.rt == 0):
             self.plan_g = self._compute_plan()
 
@@ -211,25 +247,20 @@ class Controller:
         self.dir = d
         self.state = "GREEN"
         self.rt = self.plan_g[d]
-
-        # (선택) 직전 대기창 내용 출력
         names = self._names_for_dir(d)
         print(f"[DBG] start GREEN dir={d} g={self.rt} names=[{names}]")
 
     def _next_phase(self):
         if self.state == "BOOT":
             self._start_cycle_if_needed()
-            self._start_green(DIRS[self.dir_idx])
-            return
-
+            self._start_green(DIRS[self.dir_idx]); return
         if self.state == "GREEN":
             self.state = "YELLOW"; self.rt = YELLOW
         elif self.state == "YELLOW":
             self.state = "ALLRED"; self.rt = ALL_RED
-        else:  # ALLRED → 다음 방향 GREEN
+        else:
             self.dir_idx = (self.dir_idx + 1) % len(DIRS)
             if self.dir_idx == 0:
-                # 새 사이클 시작 전에 계획 갱신
                 self._start_cycle_if_needed()
             self._start_green(DIRS[self.dir_idx])
 
@@ -237,24 +268,19 @@ class Controller:
         if self.rt <= 0:
             self._next_phase()
 
-        # Q 플래그: 현재 GREEN일 때만 False, 그 외(True) — (차량 ALWAYS_ACK면 영향 없음)
-        q_flag = (self.state != "GREEN")
-
-        # 광고/표시
+        q_flag = (self.state != "GREEN")  # 대기 구간만 Q=1
         self.bc.advertise(PHASE_MAP[self.dir], self.dir, self.state, self.rt, self.plan_g[self.dir], q_flag)
 
-        # 현재 방향 실시간 집계
         names = self._names_for_dir(self.dir)
-        cars_now = len(names.split(", ")) if names != "-" else 0
+        cars_now = 0 if names == "-" else len(names.split(", "))
         print(f"{self.state:<6} dir:{self.dir} RT:{self.rt}s  cars:{cars_now}  names:[{names}]")
 
         self.rt -= 1
 
 def run():
     ctrl = Controller()
-    # 스캐너 시작: 어떤 방향이든 보이면 on_car_seen 호출
-    central_scan.start_scan(ctrl.on_car_seen, target_dir=None)
-
+    # 내장(hci0)으로 스캔 쓰레드 시작(자동)
+    central_scan.start_scan(ctrl.on_car_seen, target_dir=None, iface=SCAN_IFACE)
     while True:
         ctrl.tick()
         time.sleep(1)
