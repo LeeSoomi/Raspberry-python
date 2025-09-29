@@ -138,6 +138,7 @@ def main(direction="N"):
             if not SHOW_ONLY_MINE or mine:
                 print("DIR:{}  T:{:<6} RT:{:>2}  G:{:>2}  Q:{}  UID:{}"
                       .format(state["DIR"] or "-", state["T"], state["RT"], state["G"], state["Q"], my_uid6))
+             draw_oled(direction)   # ★ OLED 갱신 추가
             last_print = now
 
         utime.sleep_ms(50)
