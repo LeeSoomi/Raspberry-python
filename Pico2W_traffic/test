@@ -113,3 +113,19 @@ sudo hcitool -i hci1 cmd 0x08 0x000a 01
 
 -------------
 지금 돌리고 있는 central_scan.py(hci0) 화면에 ‘P 차량…’ 줄이 뜨는지 확인.
+
+------------------
+실행 전 한 번만:
+
+sudo apt update
+sudo apt install -y bluetooth bluez
+# bluetoothctl에서 한 번만 켜둠
+bluetoothctl
+[bluetooth]# power on
+[bluetooth]# advertise on
+[bluetooth]# quit
+
+이후 python3 controller_sim.py 실행.
+-------------------------
+
+
