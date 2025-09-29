@@ -1,0 +1,69 @@
+1. 어댑터 준비 (한 번만 해두면 된다는 설명)
+sudo rfkill unblock bluetooth
+sudo hciconfig hci0 up
+sudo btmgmt -i hci0 le on
+
+# 동글이도 쓰면
+sudo hciconfig hci1 up
+sudo btmgmt -i hci1 le on
+
+설명:
+명령	설명	재부팅 후
+rfkill unblock bluetooth	블루투스 차단 해제	매 부팅 시 필요할 수 있음
+hciconfig hciX up	블루투스 장치 전원 ON	꺼짐 상태로 초기화됨
+btmgmt -i hciX le on	BLE(저전력) 모드 활성화	부팅 후 다시 설정해야 함
+
+✅ 결론:
+
+"한 번만 해두면 됨"은 정확하지 않습니다.
+라즈베리파이를 재부팅하면 hciX가 다시 off 상태가 되므로 매번 이 단계 필요합니다.
+→ 자동화 스크립트 또는 systemd 서비스 등록이 필요합니다. (원하시면 만들어 드릴 수 있어요.)
+
+✅ 2. 가상환경 활성화
+source bleenv/bin/activate
+
+
+새 터미널에서 실행할 때마다 필요합니다.
+
+자동화하고 싶다면 alias 또는 실행 스크립트 활용하세요:
+
+alias actenv='source /home/codestudio/bleenv/bin/activate'
+
+✅ 3. 중앙 실행 예시
+sudo -E env PATH="$PATH" python3 central_push_and_count.py --adapter hci1 --code A --scan 15
+
+설명:
+
+--adapter hci1: USB 동글 사용
+
+--code A: 방향 A
+
+--scan 15: 15초간 BLE 스캔
+
+👉 이 명령은 가상환경 내 패키지를 사용할 경우 sudo와 PATH를 함께 설정하는 방식입니다. 아주 잘 구성되어 있어요.
+
+🔁 자동화 팁 요약
+작업	자동화 필요성	방법
+hci0/hci1 up	O	rc.local, cron, systemd
+BLE 모드(on)	O	btmgmt -i hciX le on 포함
+가상환경 활성화	O	실행 스크립트 또는 alias
+중앙 실행	O	파라미터 포함된 스크립트 생성
+🧩 제안: 통합 자동 실행 스크립트 예시
+#!/bin/bash
+# 파일명: run_ble_and_controller.sh
+
+# 어댑터 활성화
+sudo rfkill unblock bluetooth
+sudo hciconfig hci0 up
+sudo btmgmt -i hci0 le on
+sudo hciconfig hci1 up
+sudo btmgmt -i hci1 le on
+
+# 가상환경
+source /home/codestudio/bleenv/bin/activate
+
+# 중앙 실행 (예시)
+sudo -E env PATH="$PATH" python3 /home/codestudio/COS/central_push_and_count.py --adapter hci1 --code A --scan 15
+
+
+필요하시면:
