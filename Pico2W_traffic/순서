@@ -365,9 +365,23 @@ if __name__ == "__main__":
 ----------------------
 
 실행:
+실행 순서 (전체)
 
-python3 /home/pi/controller_sim.py
+피코(자동차): car_view_filtered.py 실행 → OLED WAIT...
 
+라즈베리파이(중앙): (선택) 충돌 방지 위해 기존 광고 끄기
+bluetoothctl
+[bluetooth]# advertise off
+[bluetooth]# quit
+
+
+라즈베리파이(중앙): 컨트롤러 실행
+/home/codestudio/COS/bleenv/bin/python3 /home/pi/controller_sim.py
+
+
+콘솔에 [BT] runner started / [ADV] RT:..|DIR:..|Q:..|T:.. 로그가 나오면 광고 송출 중
+
+피코 OLED: G 05s / DIR:N 형태로 갱신되면 성공
 -----------------------------------
 
 자동 실행(부팅 시)
