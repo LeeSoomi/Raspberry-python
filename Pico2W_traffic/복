@@ -1,0 +1,89 @@
+1) 간단 복구 (파일·실행 충돌 정리)
+
+Thonny REPL에서 실행 중이면 Ctrl+C → Ctrl+D(soft reboot).
+
+왼쪽 “Raspberry Pi Pico” 저장소에서 main.py / boot.py 가 있으면
+→ main_off.py / boot_off.py로 이름 변경(자동실행 차단).
+
+REPL에서:
+
+import os; print(os.listdir())
+
+
+불필요한 테스트 스크립트가 자동실행되지 않게 정리합니다.
+
+이 단계만으로도 대부분의 “계속 리부트/아무것도 안 뜸” 문제가 해결돼요.
+
+2) 파일시스템 초기화(보드 안의 파일만 지우기)
+
+Thonny에서 필요 파일을 백업한 뒤(오른쪽 클릭 → Download),
+main.py, 테스트 파일 등 문제 원인 후보를 삭제.
+
+REPL에서 아래처럼 전체 삭제도 가능(주의: 모든 사용자 파일 삭제):
+
+import os
+for f in os.listdir():
+    if f not in ("lib",):  # 라이브러리 폴더는 남기려면 예외 처리
+        try: os.remove(f)
+        except OSError: pass
+
+
+그 후 전원 재연결 → 필요한 파일만 다시 올립니다.
+
+3) MicroPython 재설치(펌웨어 재플래시)
+
+Pico 2 W 기준(라즈베리파이 피코2도 동일 절차):
+
+BOOTSEL 모드 진입
+
+보드의 BOOTSEL 버튼을 누른 상태로 USB 연결 → PC에 대용량 드라이브(RPI-RP2) 가 뜹니다.
+
+UF2 펌웨어 복사
+
+MicroPython Pico 2 W 전용 UF2 파일을 드래그&드롭.
+
+정확한 파일명/다운로드 위치는 버전에 따라 다름(확실하지 않음).
+
+Thonny에서 Tools → Options → Interpreter → Install MicroPython… 메뉴로도 설치할 수 있습니다(권장).
+
+자동 재부팅 후 Thonny에서 인터프리터를 MicroPython (Raspberry Pi Pico) 로 다시 선택.
+
+완전 초기화가 필요하면 flash_nuke.uf2로 플래시 전체를 지운 뒤 펌웨어를 다시 올릴 수 있습니다.
+다만 Pico 2 W(rp2350) 용 nuker UF2가 공식 배포되었는지는 버전에 따라 상이합니다(확실하지 않음). 일반적으론 UF2 재설치만으로 충분합니다.
+
+4) 라즈베리파이5(중앙) 쪽 점검
+
+Bluetooth 광고 충돌 제거: bluetoothctl에서
+
+power on
+advertise off
+
+
+(우리는 ServiceData runner가 광고를 등록하므로 중복 금지)
+
+의존 패키지 재설치:
+
+sudo apt update
+sudo apt install -y bluetooth bluez python3-pip
+pip3 install --upgrade dbus-next
+
+
+권한 부여(무루트 실행 시):
+
+sudo setcap cap_net_raw,cap_net_admin+eip $(readlink -f $(which python3))
+
+5) 정상동작 확인 루틴
+
+Pico(차): car_view_filtered.py만 올려 Run(F5) → OLED에 WAIT... 떠야 정상.
+
+Pi(중앙): controller_sim.py 실행 → 콘솔에 [BT] runner started, [ADV] RT:..|DIR:..|Q:..|T:.. 로그 확인.
+
+몇 초 안에 OLED가 G 05s / DIR:N 식으로 갱신되면 OK.
+
+자주 나는 함정
+
+main.py가 남아 있어서 테스트 스크립트 실행 전에 자동으로 다른 코드가 돌음 → “계속 soft reboot만 보임”.
+
+한 보드에서 광고와 스캔을 동시에 강행 → 충돌/표시 안 됨.
+
+Pi에서 bluetoothctl advertise on을 켜둔 채 runner도 등록 → 광고 등록 실패.
