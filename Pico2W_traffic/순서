@@ -188,6 +188,8 @@ if __name__ == "__main__":
 
 from collections import deque
 import time, json, os, re, threading, subprocess, sys
+import subprocess, sys, os
+
 
 # central_scan이 없다면 패스(필요시 직접 구현/연결)
 try:
@@ -256,18 +258,27 @@ class AckBus:
 
 # ===== Broadcaster: runner를 내부에서 띄워 ServiceData로 광고 =====
 class Broadcaster:
-    def __init__(self, runner_path="/home/pi/ble_adv_service_data_runner.py"):
+    def __init__(self,
+                 runner_path="/home/codestudio/COS/ble_adv_service_data_runner.py",
+                 python_exec="/home/codestudio/COS/bleenv/bin/python3"):
         self.runner_path = runner_path
+        self.python_exec = python_exec
         self.proc = None
         self._last_payload = None
         self._start_runner()
 
     def _start_runner(self):
+        # 이미 살아있으면 재시작 안 함
         if self.proc and self.proc.poll() is None:
             return
+        # 환경: 가상환경 내 python으로 runner 실행
         self.proc = subprocess.Popen(
-            [sys.executable, self.runner_path],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            [self.python_exec, self.runner_path],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"}  # 즉시 flush
         )
         print("[BT] runner started")
 
@@ -281,7 +292,7 @@ class Broadcaster:
             self.proc.stdin.write(payload + "\n")
             self.proc.stdin.flush()
             self._last_payload = payload
-            # 디버그 로그 (runner stdout 읽고 싶으면 아래 주석 해제)
+            # 필요하면 runner의 stdout 라인을 읽어 디버그
             # print(self.proc.stdout.readline().strip())
             print("[ADV]", payload)
         except BrokenPipeError:
