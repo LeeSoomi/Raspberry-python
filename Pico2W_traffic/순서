@@ -109,11 +109,10 @@ systemctl status bluetooth
 
 아래 파일을 파이에 저장(예: /home/pi/ble_adv_service_data_runner.py):
 
-# ble_adv_service_data_runner.py
 import asyncio, sys
 from dbus_next.aio import MessageBus
 from dbus_next.message import Message
-from dbus_next.constants import MessageType
+from dbus_next.constants import MessageType, BusType
 
 ADAPTER = "hci0"
 
@@ -122,19 +121,19 @@ def mk_props(payload: str):
     return {
         "Type": "peripheral",
         "LocalName": "Pi5",
-        "ServiceData": { "ffff": bytes(data) },  # uuid16: 0xffff
+        "ServiceData": {"ffff": bytes(data)},
         "IncludeTxPower": False,
         "Discoverable": True,
         "Timeout": 0,
-        "MinInterval": 160,  # 100ms
-        "MaxInterval": 320,  # 200ms
+        "MinInterval": 160,
+        "MaxInterval": 320,
     }
 
 class LEAdvertisement:
     PATH = "/com/example/adv0"
     IFACE = "org.bluez.LEAdvertisement1"
     def __init__(self, props): self.props = props
-    def get_properties(self): return { self.IFACE: self.props }
+    def get_properties(self): return {self.IFACE: self.props}
     async def Release(self): pass
 
 async def register(bus, props):
@@ -148,7 +147,7 @@ async def register(bus, props):
                   body=[LEAdvertisement.PATH, {}])
     reply = await bus.call(msg)
     if reply.message_type == MessageType.ERROR:
-        raise RuntimeError("RegisterAdvertisement failed")
+        raise RuntimeError(f"RegisterAdvertisement failed: {reply.body}")
     return adv
 
 async def unregister(bus):
@@ -157,12 +156,14 @@ async def unregister(bus):
                   interface="org.bluez.LEAdvertisingManager1",
                   member="UnregisterAdvertisement",
                   signature="o",
-                  body=["/com/example/adv0"])
+                  body=[LEAdvertisement.PATH])
     try: await bus.call(msg)
     except: pass
 
 async def main():
-    bus = await MessageBus(system=True).connect()
+    # ✅ 여기!
+    bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+
     adv_obj = None
     while True:
         line = sys.stdin.readline()
@@ -180,6 +181,20 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 -----------------------------
+
+테스트:
+
+# 가상환경 활성화
+source /home/codestudio/COS/bleenv/bin/activate
+pip install --upgrade dbus-next
+# 권한(무루트 실행 시에만 필요)
+sudo setcap cap_net_raw,cap_net_admin+eip /home/codestudio/COS/bleenv/bin/python3 || \
+sudo setcap cap_net_raw,cap_net_admin+eip /home/codestudio/COS/bleenv/bin/python
+
+echo "RT:30|DIR:N|Q:1|T:G" | /home/codestudio/COS/bleenv/bin/python3 /home/codestudio/COS/ble_adv_service_data_runner.py
+# 또는 python 경로가 python3가 아니라면 python로
+
+---------------------------------
 
 4) 라즈베리파이5(중앙) — 컨트롤러(스캐닝 콜백/상태머신 + runner 내부 실행)
 
@@ -257,30 +272,34 @@ class AckBus:
             return {u for (t,d,u) in self.buf if d==direction and (now - t) <= window_sec}
 
 # ===== Broadcaster: runner를 내부에서 띄워 ServiceData로 광고 =====
+import subprocess, sys, os, shutil
+
 class Broadcaster:
     def __init__(self,
                  runner_path="/home/codestudio/COS/ble_adv_service_data_runner.py",
-                 python_exec="/home/codestudio/COS/bleenv/bin/python3"):
+                 python_exec=None):
+        # python_exec 자동 탐색 (venv python3 > venv python > 시스템 python3)
+        cand = [
+            "/home/codestudio/COS/bleenv/bin/python3",
+            "/home/codestudio/COS/bleenv/bin/python",
+            shutil.which("python3"),
+        ]
+        self.python_exec = python_exec or next(p for p in cand if p)
         self.runner_path = runner_path
-        self.python_exec = python_exec
         self.proc = None
         self._last_payload = None
         self._start_runner()
 
     def _start_runner(self):
-        # 이미 살아있으면 재시작 안 함
         if self.proc and self.proc.poll() is None:
             return
-        # 환경: 가상환경 내 python으로 runner 실행
         self.proc = subprocess.Popen(
             [self.python_exec, self.runner_path],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"}  # 즉시 flush
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"}
         )
-        print("[BT] runner started")
+        print("[BT] runner started:", self.python_exec, self.runner_path)
 
     def advertise(self, ph, dir_letter, state, rt, g, q_flag):
         payload = f"RT:{rt}|DIR:{dir_letter}|Q:{int(q_flag)}|T:{state[:1]}"
@@ -289,15 +308,11 @@ class Broadcaster:
         if self.proc is None or self.proc.poll() is not None:
             self._start_runner()
         try:
-            self.proc.stdin.write(payload + "\n")
-            self.proc.stdin.flush()
+            self.proc.stdin.write(payload + "\n"); self.proc.stdin.flush()
             self._last_payload = payload
-            # 필요하면 runner의 stdout 라인을 읽어 디버그
-            # print(self.proc.stdout.readline().strip())
             print("[ADV]", payload)
         except BrokenPipeError:
             self._start_runner()
-
 # ===== 상태머신 컨트롤러 =====
 class Controller:
     def __init__(self):
@@ -363,7 +378,15 @@ def run():
 if __name__ == "__main__":
     run()
 ----------------------
+실행:
 
+# 가상환경 쓰려면 활성화 후
+source /home/codestudio/COS/bleenv/bin/activate
+python /home/codestudio/COS/controller_sim.py
+# 또는 venv 경로로 직접
+/home/codestudio/COS/bleenv/bin/python /home/codestudio/COS/controller_sim.py
+
+----------------------------------------
 실행:
 실행 순서 (전체)
 
