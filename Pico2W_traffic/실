@@ -1,0 +1,21 @@
+실행 순서 (재부팅 후)
+
+# 0) 외장 동글 인식/활성화
+hciconfig -a           # hci0, hci1 보이는지 확인
+sudo rfkill unblock bluetooth
+sudo hciconfig hci0 up
+sudo hciconfig hci1 up
+
+# 1) 가상환경
+source /경로/venv/bin/activate
+pip install bluepy  # (미설치시)
+
+# 2) 실행(프로젝트 폴더에서)
+sudo "$(which python)" controller_sim.py
+
+
+콘솔에 [PLAN], start GREEN, [ADV] ... Q:1/0 등이 계속 나오면 정상
+
+스캔은 내장(hci0), 광고는 외장(hci1) 로 동작
+
+Pico는 car_pico.py 실행 상태에서 OLED에 내 차례 GREEN일 때 RT 카운트다운 표시
