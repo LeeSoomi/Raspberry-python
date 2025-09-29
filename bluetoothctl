@@ -1,0 +1,23 @@
+1. 어댑터 준비 (한 번만 해두면 된다는 설명)
+sudo rfkill unblock bluetooth
+sudo hciconfig hci0 up
+sudo btmgmt -i hci0 le on
+
+# 동글이도 쓰면
+sudo hciconfig hci1 up
+sudo btmgmt -i hci1 le on
+
+
+2. 가상환경 활성화
+source bleenv/bin/activate
+
+
+새 터미널에서 실행할 때마다 필요합니다.
+
+자동화하고 싶다면 alias 또는 실행 스크립트 활용하세요:
+
+alias actenv='source /home/codestudio/bleenv/bin/activate'
+
+✅ 3. 중앙 실행 예시
+sudo -E env PATH="$PATH" python3 central_push_and_count.py --adapter hci1 --code A --scan 15
+
