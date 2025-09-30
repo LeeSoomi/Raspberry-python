@@ -19,3 +19,28 @@ sudo hcitool -i hci1 cmd 0x08 0x000a 01
 
 echo "hci1(내장) 광고 시작"
 echo "MAC: 2C:CF:67:11:B6:9D"
+
+
+-------------------------------
+
+
+# hci1으로 광고 시작
+sudo systemctl stop bluetooth
+sudo hciconfig hci1 down
+sleep 1
+sudo hciconfig hci1 up
+sleep 1
+
+# 광고 데이터 설정
+sudo hcitool -i hci1 cmd 0x08 0x0008 0B020106070954455354
+
+# 광고 파라미터
+sudo hcitool -i hci1 cmd 0x08 0x0006 2000200000000000000000000700
+
+# 광고 시작
+sudo hcitool -i hci1 cmd 0x08 0x000a 01
+
+echo "hci1 광고 시작 (MAC: 2c:cf:67:11:b6:9d)"
+
+# 상태 확인
+sudo hciconfig hci1 | grep "UP\|RUNNING"
