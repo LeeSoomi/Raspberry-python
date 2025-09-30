@@ -1,0 +1,402 @@
+외부 블루투스 동글 설정
+1. 연결 확인
+
+bash# USB 블루투스 동글 연결 후 확인
+lsusb
+
+# 출력 예시:
+# Bus 001 Device 004: ID 0a12:0001 Cambridge Silicon Radio, Ltd Bluetooth Dongle
+
+bash# 블루투스 어댑터 목록 확인
+hciconfig
+
+# 출력 예시:
+# hci0:   Type: Primary  Bus: UART           ← 내장 블루투스
+# hci1:   Type: Primary  Bus: USB            ← 외부 동글
+
+2. BlueZ 설정
+2-1. BlueZ 설치/업데이트
+bash# BlueZ 설치 (이미 설치되어 있을 수 있음)
+sudo apt update
+sudo apt install bluez bluez-tools
+
+# 버전 확인 (5.50 이상 권장)
+bluetoothctl --version
+2-2. 어댑터 활성화
+bash# 두 어댑터 모두 활성화
+sudo hciconfig hci0 up
+sudo hciconfig hci1 up
+
+# 상태 확인
+hciconfig -a
+
+# 출력에서 'UP RUNNING' 확인
+
+라즈베리파이 - 송신 테스트 코드python# test_advertise.py
+import subprocess
+import time
+
+class BLEAdvertiser:
+    def __init__(self, adapter="hci1"):
+        self.adapter = adapter
+        self.setup_adapter()
+    
+    def setup_adapter(self):
+        """어댑터 초기화"""
+        print(f"[{self.adapter}] 어댑터 활성화...")
+        subprocess.run(f"sudo hciconfig {self.adapter} up", shell=True)
+        subprocess.run(f"sudo hciconfig {self.adapter} leadv 0", shell=True)  # 광고 중지
+        time.sleep(0.5)
+    
+    def advertise(self, payload):
+        """
+        BLE 광고 송신
+        Service Data (0xFFFF) 형식
+        """
+        # 1. 광고 중지
+        subprocess.run(
+            f"sudo hcitool -i {self.adapter} cmd 0x08 0x000a 00",
+            shell=True,
+            capture_output=True
+        )
+        
+        # 2. Service Data 구성
+        data_hex = payload.encode('utf-8').hex()
+        
+        # ADV 구조: Length + AD Type(0x16) + UUID(0xFFFF Little Endian) + Data
+        data_length = len(data_hex) // 2
+        total_length = data_length + 3  # UUID(2) + Type(1)
+        
+        adv_data = f"{total_length:02x}16FFFF{data_hex}"
+        
+        # 전체 패킷 길이
+        packet_length = len(adv_data) // 2
+        packet = f"{packet_length:02x}{adv_data}"
+        
+        # 3. 광고 데이터 설정 (HCI Command: 0x08 0x0008)
+        cmd = f"sudo hcitool -i {self.adapter} cmd 0x08 0x0008 {packet}"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            print(f"❌ 광고 설정 실패: {result.stderr}")
+            return False
+        
+        # 4. 광고 파라미터 설정 (100ms 간격)
+        # Min/Max Interval: 0x00A0 = 160 * 0.625ms = 100ms
+        cmd = (
+            f"sudo hcitool -i {self.adapter} cmd 0x08 0x0006 "
+            "A000 A000 00 00 00 000000000000 07 00"
+        )
+        subprocess.run(cmd, shell=True, capture_output=True)
+        
+        # 5. 광고 시작 (HCI Command: 0x08 0x000a 01)
+        cmd = f"sudo hcitool -i {self.adapter} cmd 0x08 0x000a 01"
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            print(f"❌ 광고 시작 실패: {result.stderr}")
+            return False
+        
+        print(f"✅ [{self.adapter}] 광고 송신: {payload}")
+        return True
+    
+    def stop(self):
+        """광고 중지"""
+        subprocess.run(
+            f"sudo hcitool -i {self.adapter} cmd 0x08 0x000a 00",
+            shell=True
+        )
+        print(f"[{self.adapter}] 광고 중지")
+
+
+def test_simple_broadcast():
+    """간단한 테스트"""
+    advertiser = BLEAdvertiser("hci1")
+    
+    print("\n=== BLE 광고 테스트 시작 ===\n")
+    
+    try:
+        # 테스트 1: 고정 메시지
+        print("테스트 1: 고정 메시지")
+        advertiser.advertise("HELLO:PICO")
+        time.sleep(5)
+        
+        # 테스트 2: 신호등 시뮬레이션
+        print("\n테스트 2: 신호등 시뮬레이션")
+        
+        # GREEN
+        for t in range(5, 0, -1):
+            payload = f"DIR:N|T:GREEN|RT:{t}|Q:0"
+            advertiser.advertise(payload)
+            time.sleep(1)
+        
+        # YELLOW
+        for t in range(2, 0, -1):
+            payload = f"DIR:N|T:YELLOW|RT:{t}|Q:0"
+            advertiser.advertise(payload)
+            time.sleep(1)
+        
+        # RED
+        for t in range(5, 0, -1):
+            payload = f"DIR:N|T:RED|RT:{t}|Q:1"
+            advertiser.advertise(payload)
+            time.sleep(1)
+        
+        print("\n테스트 완료!")
+        
+    except KeyboardInterrupt:
+        print("\n\n테스트 중단")
+    finally:
+        advertiser.stop()
+
+
+if __name__ == '__main__':
+    test_simple_broadcast()
+
+--------------------------------------------
+
+피코 W - 수신 테스트 코드
+
+# pico_receiver_test.py
+import bluetooth
+import time
+from machine import Pin, I2C
+import ssd1306
+
+class BLEReceiver:
+    def __init__(self):
+        # OLED 초기화 (I2C0, GPIO 0=SDA, 1=SCL)
+        self.i2c = I2C(0, scl=Pin(1), sda=Pin(0), freq=400000)
+        self.oled = ssd1306.SSD1306_I2C(128, 64, self.i2c)
+        
+        # BLE 초기화
+        self.ble = bluetooth.BLE()
+        self.ble.active(True)
+        self.ble.irq(self._irq_handler)
+        
+        # 상태
+        self.last_payload = None
+        self.scan_count = 0
+        
+        # 시작 메시지
+        self.display_text("Waiting...", "Scan: 0")
+        print("BLE Receiver 시작")
+    
+    def _irq_handler(self, event, data):
+        """BLE IRQ 콜백"""
+        if event == 5:  # _IRQ_SCAN_RESULT
+            addr_type, addr, adv_type, rssi, adv_data = data
+            
+            self.scan_count += 1
+            
+            # Service Data 파싱
+            payload = self.parse_service_data(adv_data)
+            
+            if payload:
+                print(f"✅ 수신: {payload} (RSSI: {rssi})")
+                self.last_payload = payload
+                self.display_signal(payload, rssi)
+            
+            # 10번마다 스캔 카운트 출력
+            if self.scan_count % 10 == 0:
+                print(f"스캔 횟수: {self.scan_count}")
+    
+    def parse_service_data(self, adv_data):
+        """
+        Service Data (0xFFFF) 파싱
+        ADV 구조: Length(1) | Type(1) | UUID(2) | Data(N)
+        """
+        try:
+            i = 0
+            while i < len(adv_data):
+                length = adv_data[i]
+                
+                # 길이가 0이거나 범위 초과
+                if length == 0 or i + length >= len(adv_data):
+                    break
+                
+                ad_type = adv_data[i + 1]
+                
+                # 0x16 = Service Data with 16-bit UUID
+                if ad_type == 0x16:
+                    # UUID 추출 (Little Endian)
+                    uuid_low = adv_data[i + 2]
+                    uuid_high = adv_data[i + 3]
+                    uuid = uuid_low | (uuid_high << 8)
+                    
+                    # 0xFFFF 확인
+                    if uuid == 0xFFFF:
+                        # 데이터 추출
+                        data_start = i + 4
+                        data_end = i + 1 + length
+                        payload_bytes = adv_data[data_start:data_end]
+                        
+                        # UTF-8 디코딩
+                        payload = payload_bytes.decode('utf-8', errors='ignore')
+                        return payload
+                
+                # 다음 AD 구조로
+                i += 1 + length
+            
+        except Exception as e:
+            print(f"파싱 에러: {e}")
+        
+        return None
+    
+    def display_text(self, line1, line2="", line3="", line4=""):
+        """OLED에 텍스트 표시"""
+        self.oled.fill(0)
+        self.oled.text(line1, 0, 0)
+        if line2:
+            self.oled.text(line2, 0, 16)
+        if line3:
+            self.oled.text(line3, 0, 32)
+        if line4:
+            self.oled.text(line4, 0, 48)
+        self.oled.show()
+    
+    def display_signal(self, payload, rssi):
+        """신호 상태 표시"""
+        try:
+            # 페이로드 파싱
+            parts = payload.split('|')
+            signal_data = {}
+            
+            for part in parts:
+                if ':' in part:
+                    key, value = part.split(':', 1)
+                    signal_data[key] = value
+            
+            # 신호 정보 추출
+            direction = signal_data.get('DIR', '?')
+            state = signal_data.get('T', '?')
+            remaining = signal_data.get('RT', '?')
+            q_flag = signal_data.get('Q', '?')
+            
+            # OLED 표시
+            self.oled.fill(0)
+            
+            # 라인 1: 방향
+            self.oled.text(f"DIR: {direction}", 0, 0)
+            
+            # 라인 2: 상태 (크게 표시)
+            if state == 'GREEN':
+                self.oled.text(f">>> {state} >>>", 0, 16)
+            elif state == 'YELLOW':
+                self.oled.text(f"!!! {state} !!!", 0, 16)
+            elif state == 'RED':
+                self.oled.text(f"=== {state} ===", 0, 16)
+            else:
+                self.oled.text(state, 0, 16)
+            
+            # 라인 3: 남은 시간
+            self.oled.text(f"Time: {remaining}s", 0, 32)
+            
+            # 라인 4: Q 플래그 & RSSI
+            self.oled.text(f"Q:{q_flag} RSSI:{rssi}", 0, 48)
+            
+            self.oled.show()
+            
+        except Exception as e:
+            # 파싱 실패 시 원본 표시
+            print(f"표시 에러: {e}")
+            self.display_text("Received:", payload[:16], payload[16:32])
+    
+    def start_scan(self):
+        """연속 스캔 시작"""
+        # duration_ms=0: 무한 스캔
+        # interval_us = window_us: 100% 듀티 사이클
+        self.ble.gap_scan(
+            duration_ms=0,
+            interval_us=100000,  # 100ms
+            window_us=100000     # 100ms
+        )
+        print("연속 스캔 시작 (100ms 간격)")
+    
+    def run(self):
+        """메인 루프"""
+        self.start_scan()
+        
+        try:
+            while True:
+                time.sleep(1)
+                
+                # 1초마다 상태 업데이트
+                if self.last_payload:
+                    print(f"현재 신호: {self.last_payload}")
+                
+        except KeyboardInterrupt:
+            print("\n종료")
+            self.ble.gap_scan(None)  # 스캔 중지
+            self.display_text("Stopped")
+
+
+# 실행
+receiver = BLEReceiver()
+receiver.run()
+
+---------------------------
+
+
+테스트 순서
+1단계: 라즈베리파이 준비
+bash# 패키지 설치
+sudo apt update
+sudo apt install bluez bluez-tools python3-pip
+
+# 권한 설정
+sudo setcap 'cap_net_raw,cap_net_admin+eip' $(which hcitool)
+sudo setcap 'cap_net_raw,cap_net_admin+eip' $(which hciconfig)
+
+# 어댑터 확인
+hciconfig
+
+# 출력 예시:
+# hci0: ...
+# hci1: ... ← 외장 동글
+2단계: 라즈베리파이 테스트 실행
+bash# 코드 저장
+nano test_advertise.py
+# (위 코드 붙여넣기)
+
+# 실행
+python3 test_advertise.py
+예상 출력:
+[hci1] 어댑터 활성화...
+
+=== BLE 광고 테스트 시작 ===
+
+테스트 1: 고정 메시지
+✅ [hci1] 광고 송신: HELLO:PICO
+
+테스트 2: 신호등 시뮬레이션
+✅ [hci1] 광고 송신: DIR:N|T:GREEN|RT:5|Q:0
+✅ [hci1] 광고 송신: DIR:N|T:GREEN|RT:4|Q:0
+✅ [hci1] 광고 송신: DIR:N|T:GREEN|RT:3|Q:0
+...
+
+3단계: 피코 W 준비
+python# Thonny IDE에서:
+# 1. 파일 → 다른 이름으로 저장 → Raspberry Pi Pico
+# 2. 파일명: pico_receiver_test.py
+# 3. 실행 (F5)
+예상 출력 (Thonny 쉘):
+BLE Receiver 시작
+연속 스캔 시작 (100ms 간격)
+스캔 횟수: 10
+✅ 수신: HELLO:PICO (RSSI: -45)
+스캔 횟수: 20
+✅ 수신: DIR:N|T:GREEN|RT:5|Q:0 (RSSI: -47)
+현재 신호: DIR:N|T:GREEN|RT:5|Q:0
+✅ 수신: DIR:N|T:GREEN|RT:4|Q:0 (RSSI: -46)
+현재 신호: DIR:N|T:GREEN|RT:4|Q:0
+...
+4단계: OLED 확인
+피코 W OLED 화면에 실시간 표시:
+┌─────────────────┐
+│ DIR: N          │
+│ >>> GREEN >>>   │
+│ Time: 5s        │
+│ Q:0 RSSI:-47    │
+└─────────────────┘
+
