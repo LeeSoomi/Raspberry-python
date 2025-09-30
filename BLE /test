@@ -1,44 +1,21 @@
-# 1. 모든 BLE 프로세스 정리
+# hci1(내장)로 광고 송신 테스트
 sudo systemctl stop bluetooth
-sudo killall bluetoothd 2>/dev/null
-sudo killall hciattach 2>/dev/null
-
-# 2. 어댑터 완전 리셋
-sudo hciconfig hci0 down
-sudo rfkill unblock bluetooth
-sleep 2
-sudo hciconfig hci0 up
-sleep 2
-
-# 3. 광고 완전 중지
-sudo hcitool -i hci0 cmd 0x08 0x000a 00
+sudo hciconfig hci1 down
+sleep 1
+sudo hciconfig hci1 up
 sleep 1
 
-# 4. 광고 데이터 설정 (단계별 확인)
-echo "Step 1: Set Advertising Data"
-sudo hcitool -i hci0 cmd 0x08 0x0008 \
-  0B 02 01 06 07 09 54 45 53 54
+# 광고 중지
+sudo hcitool -i hci1 cmd 0x08 0x000a 00
 
-# 위 명령어 설명:
-# 0B = 총 11바이트
-# 02 01 06 = Flags (3바이트)
-# 07 09 54 45 53 54 = Complete Local Name "TEST" (7바이트)
+# 광고 데이터 설정 (TEST)
+sudo hcitool -i hci1 cmd 0x08 0x0008 0B020106070954455354
 
-# 5. 광고 파라미터
-echo "Step 2: Set Advertising Parameters"
-sudo hcitool -i hci0 cmd 0x08 0x0006 \
-  2000 2000 00 00 00 000000000000 07 00
-# 2000 = 200ms 간격
+# 광고 파라미터
+sudo hcitool -i hci1 cmd 0x08 0x0006 2000200000000000000000000700
 
-# 6. 광고 활성화
-echo "Step 3: Enable Advertising"
-sudo hcitool -i hci0 cmd 0x08 0x000a 01
+# 광고 시작
+sudo hcitool -i hci1 cmd 0x08 0x000a 01
 
-# 7. 상태 확인
-echo ""
-echo "Status:"
-sudo hciconfig hci0 | grep -E "UP|RUNNING|ADVERTISE"
-
-echo ""
-echo "광고 시작 완료. 피코에서 확인하세요."
-echo "예상: Data Length: 11"
+echo "hci1(내장) 광고 시작"
+echo "MAC: 2C:CF:67:11:B6:9D"
