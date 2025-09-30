@@ -44,3 +44,10 @@ echo "hci1 광고 시작 (MAC: 2c:cf:67:11:b6:9d)"
 
 # 상태 확인
 sudo hciconfig hci1 | grep "UP\|RUNNING"
+
+
+-----------------------------------
+
+
+# 다른 터미널에서
+sudo timeout 10 hcitool -i hci0 lescan | grep -i "2c:cf"
