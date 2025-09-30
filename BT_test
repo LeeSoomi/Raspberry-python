@@ -340,11 +340,16 @@ receiver.run()
 
 테스트 순서
 1단계: 라즈베리파이 준비
-bash# 패키지 설치
+# 1단계: 패키지 목록 업데이트
 sudo apt update
-sudo apt install bluez bluez-tools python3-pip
 
-# 권한 설정
+# 2단계: 시스템 패키지 설치 (한 줄로 가능)
+sudo apt install -y bluez bluez-tools python3-pip
+
+# 3단계: Python 라이브러리 설치
+pip3 install bleak
+
+# 4단계: 권한 설정 (중요!)
 sudo setcap 'cap_net_raw,cap_net_admin+eip' $(which hcitool)
 sudo setcap 'cap_net_raw,cap_net_admin+eip' $(which hciconfig)
 
