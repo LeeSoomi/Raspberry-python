@@ -405,3 +405,135 @@ BLE Receiver 시작
 │ Q:0 RSSI:-47    │
 └─────────────────┘
 
+------------------------
+
+# simple_advertise_fixed.py
+import subprocess
+import time
+
+def simple_advertise():
+    adapter = "hci0"  # ✅ 외장 USB (Bus: USB)
+    
+    print(f"=== {adapter} 광고 테스트 ===")
+    print(f"어댑터: {adapter} (외장 USB 동글)")
+    
+    # 1. BlueZ 중지
+    print("BlueZ 중지...")
+    subprocess.run("sudo systemctl stop bluetooth", shell=True)
+    time.sleep(1)
+    
+    # 2. 어댑터 리셋
+    print(f"{adapter} 리셋...")
+    subprocess.run(f"sudo hciconfig {adapter} down", shell=True)
+    time.sleep(0.5)
+    subprocess.run(f"sudo hciconfig {adapter} up", shell=True)
+    time.sleep(0.5)
+    
+    # 3. 광고 중지 (초기화)
+    subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x000a 00", 
+                   shell=True, capture_output=True)
+    
+    # 4. 광고 데이터 설정
+    payload = "HELLO:PICO"
+    data_hex = payload.encode('utf-8').hex()
+    
+    # Service Data: Length | Type(0x16) | UUID(0xFFFF) | Data
+    length = len(data_hex) // 2 + 3
+    adv_data = f"{length:02x}16FFFF{data_hex}"
+    
+    packet_length = len(adv_data) // 2
+    packet = f"{packet_length:02x}{adv_data}"
+    
+    print(f"광고 데이터: {packet}")
+    
+    # 5. 광고 파라미터 설정 (100ms 간격)
+    cmd = f"sudo hcitool -i {adapter} cmd 0x08 0x0006 A000 A000 00 00 00 000000000000 07 00"
+    subprocess.run(cmd, shell=True, capture_output=True)
+    
+    # 6. 광고 데이터 설정
+    cmd = f"sudo hcitool -i {adapter} cmd 0x08 0x0008 {packet}"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        print(f"❌ 광고 설정 실패: {result.stderr}")
+        return
+    
+    # 7. 광고 시작
+    cmd = f"sudo hcitool -i {adapter} cmd 0x08 0x000a 01"
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        print(f"❌ 광고 시작 실패: {result.stderr}")
+        return
+    
+    print(f"\n✅ {adapter} 광고 시작 완료!")
+    print(f"피코에서 'HELLO:PICO' 메시지를 확인하세요")
+    print(f"종료하려면 Ctrl+C\n")
+    
+    # 8. 1초마다 신호등 시뮬레이션
+    try:
+        count = 5
+        while True:
+            # GREEN
+            for t in range(5, 0, -1):
+                payload = f"DIR:N|T:GREEN|RT:{t}|Q:0"
+                data_hex = payload.encode('utf-8').hex()
+                length = len(data_hex) // 2 + 3
+                adv_data = f"{length:02x}16FFFF{data_hex}"
+                packet_length = len(adv_data) // 2
+                packet = f"{packet_length:02x}{adv_data}"
+                
+                subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x0008 {packet}", 
+                              shell=True, capture_output=True)
+                subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x000a 01", 
+                              shell=True, capture_output=True)
+                
+                print(f"[TX] {payload}")
+                time.sleep(1)
+            
+            # YELLOW
+            for t in range(2, 0, -1):
+                payload = f"DIR:N|T:YELLOW|RT:{t}|Q:0"
+                data_hex = payload.encode('utf-8').hex()
+                length = len(data_hex) // 2 + 3
+                adv_data = f"{length:02x}16FFFF{data_hex}"
+                packet_length = len(adv_data) // 2
+                packet = f"{packet_length:02x}{adv_data}"
+                
+                subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x0008 {packet}", 
+                              shell=True, capture_output=True)
+                subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x000a 01", 
+                              shell=True, capture_output=True)
+                
+                print(f"[TX] {payload}")
+                time.sleep(1)
+            
+            # RED
+            for t in range(5, 0, -1):
+                payload = f"DIR:N|T:RED|RT:{t}|Q:1"
+                data_hex = payload.encode('utf-8').hex()
+                length = len(data_hex) // 2 + 3
+                adv_data = f"{length:02x}16FFFF{data_hex}"
+                packet_length = len(adv_data) // 2
+                packet = f"{packet_length:02x}{adv_data}"
+                
+                subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x0008 {packet}", 
+                              shell=True, capture_output=True)
+                subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x000a 01", 
+                              shell=True, capture_output=True)
+                
+                print(f"[TX] {payload}")
+                time.sleep(1)
+            
+            count += 1
+            print(f"\n--- 사이클 {count} 완료 ---\n")
+    
+    except KeyboardInterrupt:
+        print("\n\n광고 중지")
+        subprocess.run(f"sudo hcitool -i {adapter} cmd 0x08 0x000a 00", 
+                      shell=True, capture_output=True)
+        subprocess.run("sudo systemctl start bluetooth", shell=True)
+        print("BlueZ 재시작 완료")
+
+if __name__ == '__main__':
+    simple_advertise()
