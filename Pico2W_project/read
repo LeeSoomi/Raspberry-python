@@ -18,9 +18,10 @@ bash# WiFi 상태 확인
 iwconfig
 
 # IP 주소 확인 (나중에 필요)
-hostname -I
+hostname -I    # 192.168.0.104
 # 출력 예시: 192.168.1.100
 이 IP 주소를 메모하세요!
+
 1-2. MQTT 브로커 설치
 bash# Mosquitto 설치
 sudo apt update
