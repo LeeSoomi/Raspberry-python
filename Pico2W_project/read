@@ -1,3 +1,8 @@
+*******   싫제 사용되는 코드   **************
+Pico2 W > main.py
+라즈베리파이 > central_traffic_with_hb.py
+
+
 하드웨어/소프트웨어 준비
 
 1. Pico2 W 사용법
