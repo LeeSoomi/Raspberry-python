@@ -1,12 +1,28 @@
-1) 하드웨어/소프트웨어 준비
+하드웨어/소프트웨어 준비
 
-A. 라즈베리파이 5 (중앙)
-OS: 라즈비안/라즈베리Pi OS (기존 환경 OK)
-Python 3.x (표준 모듈만 사용: socket, json, time)
-네트워크: Pico와 같은 SSID에 연결 (동일 서브넷)
+1. Pico2 W 사용법
+    1) Python 기반 개발 환경을 위한 펌웨어
+        https://micropython.org/resources/firmware/RPI_PICO_W-20250911-v1.26.1.uf2
+       보드의 버튼을 누른상태로 PC연결  >>  PC에서  2040연결됨  >>
+        위 링크에서 받은 파일을 보드로 복사+붙여넣기 
+    2) PC에서 Tonny 설치 
+        - 설치 + 보드PC연결 >> Tonny 메뉴 > Run > Configration > Port or WedREPL 에서 연결된 보드선택
+            main.py 전체 붙여넣고 다른이름으로 저장 > Pc가 아닌 보드에 저장 (현재 저장되어있음)
+        - OLED 사용을 위해 ssd1306 설치 :  메뉴  > Tools > Manage Package 에서 ssd1306 검색 후 설치 (현재 되어있음)
+        - 네트워크: 라즈베리파이와 같은 SSID에 연결 (동일 서브넷) amin.py 내부에서 설정
+            Pico 2 W → OLED (I²C), 3V3 → VCC, GND → GND, GP0 → SDA,  GP1 → SCL
 
-B. 파이코 2 W (자동차)
-펌웨어: MicroPython (Pico 2 W 지원판)
+            
+    실행방법 : Tonny 터미널에서 Ctrl + D 또는 보드의 버튼 누르기 ( main.py 는 전원만 연결되면 자동실행되는 구조 )
+
+2.  라즈베리파이 5 (중앙) 
+    OS: 라즈비안/라즈베리Pi OS - 현재 imager 최신 32bit
+    Python 3.x (표준 모듈만 사용: socket, json, time)
+    네트워크: Pico와 같은 SSID에 연결 (동일 서브넷)
+
+
+
+
 (정확 버전은 제가 장담 못합니다. 확실하지 않음. 다만 network, socket이 있는 최신 빌드 권장)
 
 라이브러리:
