@@ -20,185 +20,43 @@
     Python 3.x (표준 모듈만 사용: socket, json, time)
     네트워크: Pico와 같은 SSID에 연결 (동일 서브넷)
 
+    0) 네트워크 전제
+        - 라즈베리파이와 모든 Pico 2 W가 같은 2.4GHz 네트워크/서브넷에 있어야 함
+        - 공유기에서 UDP 브로드캐스트 허용 (차단 옵션 꺼짐)
+        - (UFW 등 방화벽을 쓰는 경우만) UDP 5005, 5006 허용 
+        # UFW 사용하는 경우에만
+        sudo ufw allow 5005/udp
+        sudo ufw allow 5006/udp
 
+    1) 라즈베리 파이 OS 기본 설정
+        sudo raspi-config
+        # 1 System Options -> WLAN Country 설정 (Wi‑Fi 전파법 규정)
+        # 5 Localisation Options -> Timezone 설정 (로그 시간 맞춤)
+        # Finish 후 재부팅
 
+    2) Python 설정  
+        라즈베리 OS 기본 Python3로 충분해요. 단, 가상환경은 권장(충돌 방지).
+        # 최신 패키지 목록 동기화(선택)
+        sudo apt-get update
+        # 파이썬3 기본 설치 확인
+        python3 --version
+        # 프로젝트 폴더 준비
+        mkdir -p ~/COS && cd ~/COS
+        # 가상환경 만들기
+        python3 -m venv .venv
+        source .venv/bin/activate (활성)
+        
+        # 스크립트 파일 배치
+        # central_traffic_with_hb.py 를 home/codestudio/COS 저장
+        >>  /home/codestudio/COS/central_traffic_with_hb.py
 
-(정확 버전은 제가 장담 못합니다. 확실하지 않음. 다만 network, socket이 있는 최신 빌드 권장)
+        실행법 :
+            cd /home/codestudio/COS
+            source .venv/bin/activate      
+            python central_traffic_with_hb.py
 
-라이브러리:
-network, socket, ujson, machine, utime
-ssd1306(I2C OLED 드라이버)
-→ 만약 import ssd1306가 실패하면, 동일 파일을 보드에 업로드해야 합니다. (확실하지 않음: 일부 빌드엔 포함)
+        
 
-OLED: SSD1306 128×64 I2C 모듈 가정
-
-I2C 핀 매핑은 보드/배선에 따라 다릅니다. 아래 예시는 I2C0, SDA=GP4, SCL=GP5를 사용합니다.
-(Pico 2 W의 I2C 핀 매핑은 모델/보드 따라 다를 수 있어요. 확실하지 않음 — 현재 배선에 맞춰 sda/scl만 바꾸면 됩니다.)
-
-
-
-2) 네트워크/식별 & 설정 규칙
-방향 식별: 자동차 코드 상단에 MY_DIR = "N"|"E"|"S"|"W"로 고정(또는 차량별 config)
-Wi‑Fi 접속 정보: WIFI_SSID, WIFI_PASS를 자동차 코드에 기입
-브로드캐스트 수신 포트: 5005/UDP 고정
-표시 규칙:
-phase == "GREEN" → GO {t_rem}s
-그 외(RED/YELLOW) → 다음 녹색까지의 대기 t_rem(브로드캐스트가 각 방향의 t_rem을 내려주므로 그대로 표시)
-
-3) 테스트 순서(이번 목표: **“수신→OLED 표시”**만 성공)
-[라즈베리파이] 3-1. 브로드캐스트 송신 데모
-다음 파일을 central_broadcast_demo.py로 저장 후 실행:
-
-# central_broadcast_demo.py  (Raspberry Pi 5)
-import socket, json, time
-
-BCAST_IP   = "255.255.255.255"
-BCAST_PORT = 5005
-SLOT_LEN   = 20          # 20초/방향
-GREEN_DEF  = 5           # 기본 그린
-GREEN_EXT  = 8           # 혼잡 시 그린(테스트에선 주기적으로 바꿔봄)
-ORDER      = ["N", "E", "S", "W"]
-
-def make_state(active_dir, t_in_slot, green_dur):
-    # t_in_slot: 20에서 1로 감소하는 카운트다운(방향 슬롯 내 남은 시간)
-    state = {}
-    for d in ORDER:
-        if d == active_dir:
-            # 간단히: 슬롯 앞 GREEN, 뒤 RED로 두 구간만 나눔(테스트용)
-            # (실전에서는 YELLOW/ALL-RED 구간도 세분화 예정)
-            if t_in_slot > (SLOT_LEN - green_dur):
-                phase = "GREEN"
-                t_rem = t_in_slot - (SLOT_LEN - green_dur)
-            else:
-                phase = "RED"
-                t_rem = (SLOT_LEN - green_dur) - t_in_slot
-            state[d] = {"phase": phase, "t_rem": int(t_rem), "g_dur": green_dur}
-        else:
-            # 활성 방향이 아니면 대기(RED), 남은 시간은 대략 다음 자기 차례까지 남은 총합
-            idx_now  = ORDER.index(active_dir)
-            idx_self = ORDER.index(d)
-            # 다음 자기 슬롯까지 남은 슬롯들 길이 + 그 슬롯 GREEN 시작 전 대기시간을 대략치로 표출
-            hops = (idx_self - idx_now) % 4
-            if hops == 0:
-                hops = 4
-            t_wait = (hops - 1) * SLOT_LEN + t_in_slot
-            state[d] = {"phase": "RED", "t_rem": int(t_wait), "g_dur": GREEN_DEF}
-    return state
-
-def main():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-    cycle = 0
-    while True:
-        for active in ORDER:
-            # 데모: 짝수 사이클은 GREEN_DEF, 홀수 사이클은 GREEN_EXT
-            green = GREEN_EXT if (cycle % 2 == 1) else GREEN_DEF
-            for t in range(SLOT_LEN, 0, -1):
-                payload = {
-                    "schema": 1,
-                    "slot_len": SLOT_LEN,
-                    "directions": make_state(active, t, green),
-                }
-                s.sendto(json.dumps(payload).encode(), (BCAST_IP, BCAST_PORT))
-                time.sleep(1)
-            cycle += 1
-
-if __name__ == "__main__":
-    main()
-
------------------------------------------
-
-[Pico 2 W] 3-2. Wi‑Fi 접속 & UDP 수신 → OLED 표시
-
-아래 스크립트를 main.py로 업로드/실행하세요.
-(SSID/비밀번호와 MY_DIR, I2C 핀만 환경에 맞게 수정)
-
-
-# main.py  (Pico 2 W / MicroPython)
-import network, socket, ujson as json
-from machine import Pin, I2C
-import utime as time
-
-# ===== 사용자 설정 =====
-WIFI_SSID = "YOUR_SSID"
-WIFI_PASS = "YOUR_PASS"
-MY_DIR    = "N"   # "N" | "E" | "S" | "W"
-UDP_PORT  = 5005
-
-# OLED I2C 설정 (보드 배선에 맞게 조정)
-# *예시* I2C0, SDA=GP4, SCL=GP5  (필요 시 GP0/1 혹은 다른 조합으로 변경)
-I2C_ID = 0
-PIN_SDA = 4
-PIN_SCL = 5
-OLED_WIDTH  = 128
-OLED_HEIGHT = 64
-
-# ===== OLED 드라이버 =====
-try:
-    import ssd1306
-except ImportError:
-    raise SystemExit("ssd1306 모듈이 없습니다. ssd1306.py를 보드에 업로드해주세요.")
-
-i2c = I2C(I2C_ID, scl=Pin(PIN_SCL), sda=Pin(PIN_SDA), freq=400000)
-oled = ssd1306.SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c)
-
-def oled_text(lines):
-    oled.fill(0)
-    y = 0
-    for line in lines:
-        oled.text(line, 0, y)
-        y += 10
-    oled.show()
-
-# ===== Wi‑Fi 연결 =====
-def wifi_connect():
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-    if not wlan.isconnected():
-        wlan.connect(WIFI_SSID, WIFI_PASS)
-        t0 = time.ticks_ms()
-        while not wlan.isconnected():
-            if time.ticks_diff(time.ticks_ms(), t0) > 15000:
-                oled_text(["WiFi FAIL", "Check SSID/PASS"])
-                raise SystemExit("WiFi timeout")
-            time.sleep_ms(200)
-    ip = wlan.ifconfig()[0]
-    oled_text([f"WiFi OK:{ip}", f"DIR:{MY_DIR}"])
-    time.sleep(1)
-    return ip
-
-# ===== UDP 수신 루프 =====
-def recv_loop():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("0.0.0.0", UDP_PORT))
-    oled_text([f"Listening {UDP_PORT}", f"DIR: {MY_DIR}"])
-    while True:
-        try:
-            data, addr = s.recvfrom(1024)
-            obj = json.loads(data)
-            my = obj["directions"][MY_DIR]
-            phase = my["phase"]
-            trem  = int(my["t_rem"])
-            gdur  = int(my.get("g_dur", 5))
-            if phase == "GREEN":
-                # 이동 상태: 남은 녹색
-                lines = [f"{MY_DIR}  GO",
-                         f"Green: {trem}s",
-                         f"g_dur:{gdur}s"]
-            else:
-                # 대기 상태: 남은 대기
-                lines = [f"{MY_DIR}  WAIT",
-                         f"Wait:  {trem}s",
-                         f"next g:{gdur}s"]
-            oled_text(lines)
-        except Exception as e:
-            # 파싱 에러/키 누락 등은 화면에 짧게 표시 후 계속
-            oled_text(["RX ERROR", str(e)[:16]])
-            time.sleep(0.3)
-
-# ===== 메인 =====
 wifi_connect()
 recv_loop()
 ----------------------------------------
