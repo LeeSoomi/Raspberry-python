@@ -7,14 +7,15 @@
 # ----------------------------------
 
 # central_traffic_with_hb.py  (Raspberry Pi 5 / Python 3)
+# central_traffic_with_hb.py  (Raspberry Pi 5 / Python 3)
 import socket, json, time
 import os
 
-# ===== 추가: 내 방향 / LED 핀팩토리 기본값 =====
-MY_DIR = os.environ.get("MY_DIR", "N")          # 내 방향: N/E/S/W
+# ===== 내 방향 / 핀팩토리 기본 =====
+MY_DIR = os.environ.get("MY_DIR", "N")          # N/E/S/W
 os.environ.setdefault("GPIOZERO_PIN_FACTORY", "lgpio")
 
-# ===== 추가: 물리 LED (BCM 핀) =====
+# ===== 물리 LED (BCM 핀) =====
 PIN_RED, PIN_YELLOW, PIN_GREEN = 17, 27, 22
 try:
     from gpiozero import LED
@@ -33,7 +34,6 @@ class TrafficLight:
         if not self.ok: return
         self.red.off(); self.yellow.off(); self.green.off()
     def set_state(self, state: str):
-        """state in {'GREEN','YELLOW','RED'}"""
         if not self.ok: return
         self.all_off()
         s = (state or "").upper()
@@ -45,14 +45,14 @@ class TrafficLight:
         self.all_off()
 
 # ---- 설정 ----
-BCAST_IP, BCAST_PORT = "255.255.255.255", 5005  # 신호 브로드캐스트
+BCAST_IP, BCAST_PORT = "255.255.255.255", 5005  # 브로드캐스트
 HB_PORT = 5006                                   # 하트비트 수신
 TOTAL = 20
 ORDER = ["N","E","S","W"]
-CAR_THRESH = 3        # 3대 이상이면 혼잡
-HB_TTL = 3.5          # 최근 3.5초 내 하트비트만 유효
+CAR_THRESH = 3
+HB_TTL = 3.5
 
-# ---- 소켓 준비 ----
+# ---- 소켓 ----
 bcast = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 bcast.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
@@ -61,11 +61,10 @@ hb.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 hb.bind(("0.0.0.0", HB_PORT))
 hb.setblocking(False)
 
-# ---- 차량 DB(uid -> {dir,last}) ----
+# ---- 차량 DB ----
 vehicles = {}
 
 def pump_hb(now):
-    """하트비트 수신 버퍼를 비우며 DB 갱신"""
     while True:
         try:
             data, addr = hb.recvfrom(256)
@@ -80,10 +79,9 @@ def pump_hb(now):
             if uid and d in ORDER:
                 vehicles[uid] = {"dir": d, "last": now}
         except Exception:
-            pass  # 이상 패킷 무시
+            pass
 
 def counts_from_db(now):
-    """TTL 내 차량만 집계하고, 오래된 항목은 제거"""
     counts = {d:0 for d in ORDER}
     drop = []
     for uid, rec in list(vehicles.items()):
@@ -96,7 +94,6 @@ def counts_from_db(now):
     return counts
 
 def decide_segments(car_counts):
-    """정책: 단 1방향만 혼잡이면 8/4/4/4, 그 외는 5/5/5/5"""
     congested = [d for d in ORDER if car_counts.get(d, 0) >= CAR_THRESH]
     if len(congested) == 1:
         seg = {d: (8 if d in congested else 4) for d in ORDER}
@@ -106,7 +103,6 @@ def decide_segments(car_counts):
     return seg, congested
 
 def build_timeline(segments):
-    """20..1 카운트다운 윈도우에 각 방향 슬롯 배치"""
     tl, t = [], TOTAL
     for d in ORDER:
         L = segments[d]
@@ -115,7 +111,6 @@ def build_timeline(segments):
     return tl
 
 def pack_payload(tl, t_now, segments, car_counts):
-    """현재 시각 t_now에 대한 directions 패키징 (원본 포맷 유지)"""
     dirs = {}
     for d, L, start, end in tl:
         if start <= t_now <= end:
@@ -127,16 +122,30 @@ def pack_payload(tl, t_now, segments, car_counts):
             dirs[d] = {"phase":"RED", "t_rem": t_to_start, "g_dur": L, "cars": car_counts.get(d,0)}
     return {"src":"central_hb_v1", "schema":1, "total":TOTAL, "order":ORDER, "directions":dirs}
 
-# ===== 추가: 내 방향 LED 상태 계산(마지막 1초는 YELLOW) =====
-def mydir_led_state(tl, t_now, my_dir, total=TOTAL):
+# ===== 내 방향 상태 + “표시용 남은 시간” (역카운트) =====
+def mydir_state_and_time(tl, t_now, my_dir, total=TOTAL):
+    """
+    반환: (state, seconds)
+      - GREEN이면 seconds = GREEN 남은 시간
+      - YELLOW(마지막 1초) / RED이면 seconds = 다음 GREEN까지 대기 시간
+    """
     seg = next((x for x in tl if x[0] == my_dir), None)
     if not seg:
-        return "RED"
+        return "RED", None
     _, L, start, end = seg
+
     if start <= t_now <= end:
         g_left = end - t_now + 1
-        return "YELLOW" if g_left == 1 else "GREEN"
-    return "RED"
+        if g_left == 1:
+            # 마지막 1초는 YELLOW, 디스플레이는 다음 GREEN까지 대기(TOTAL)
+            return "YELLOW", total
+        else:
+            return "GREEN", g_left
+    # 대기 구간(RED): 다음 GREEN까지 남은 시간
+    t_to_start = start - t_now
+    if t_to_start <= 0:
+        t_to_start += total
+    return "RED", t_to_start
 
 # ---- 메인 루프 ----
 traffic_light = TrafficLight()
@@ -152,11 +161,19 @@ try:
         tl = build_timeline(segments)
         for t_now in range(TOTAL, 0, -1):
             now = time.time()
-            pump_hb(now)                   # 주기 중에도 수신/만료 갱신
+            pump_hb(now)
             car_counts = counts_from_db(now)
 
-            # ===== 추가: 내 방향만 LED 표시 =====
-            traffic_light.set_state(mydir_led_state(tl, t_now, MY_DIR))
+            # 내 방향 LED + 남은 시간 역카운트 출력
+            st, sec = mydir_state_and_time(tl, t_now, MY_DIR, TOTAL)
+            traffic_light.set_state(st)
+            # 콘솔 숫자 역카운트(요청사항)
+            if st == "GREEN":
+                print(f"[{MY_DIR}] GREEN  남은시간: {sec:2d}s")
+            elif st == "YELLOW":
+                print(f"[{MY_DIR}] YELLOW 다음 GREEN까지: {sec:2d}s")
+            else:
+                print(f"[{MY_DIR}] RED    다음 GREEN까지: {sec:2d}s")
 
             payload = pack_payload(tl, t_now, segments, car_counts)
             bcast.sendto(json.dumps(payload).encode(), (BCAST_IP, BCAST_PORT))
