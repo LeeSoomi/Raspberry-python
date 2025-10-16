@@ -11,6 +11,7 @@ PY
 
 
 # 켜졌다 꺼지면 성공. 그럼 본 프로그램도 같은 방식으로 실행:
+# 코드 있는 경로에 들어가서
 # GPIOZERO_PIN_FACTORY=lgpio sudo -E python3 central_traffic_with_hb.py
 
 lgpio가 실패하면 rpigpio로 재시도
