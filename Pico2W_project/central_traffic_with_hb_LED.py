@@ -3,7 +3,7 @@
 # sudo apt-get install -y python3-gpiozero
 # ------------------
 
-# 실행 sudo python3 central_traffic_with_hb.py
+# 실행 sudo python3 central_traffic_with_hb_LED.py
 # ----------------------------------
 
 # BCM 기준 기본 핀: RED=17, YELLOW=27, GREEN=22
