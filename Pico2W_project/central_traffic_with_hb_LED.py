@@ -210,7 +210,7 @@ try:
             print(msg.ljust(48), end="\r", flush=True)
 
             # 브로드캐스트(원본 포맷 유지)
-            payload = pack_payload(tl, t_now, segments, car_counts)
+            payload = pack_payload(tl, t_now, segments, car_counts, MY_DIR)
             bcast.sendto(json.dumps(payload).encode(), (BCAST_IP, BCAST_PORT))
             time.sleep(1)
 
