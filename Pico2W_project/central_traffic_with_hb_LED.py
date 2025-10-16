@@ -127,25 +127,31 @@ def mydir_state_and_time(tl, t_now, my_dir, total=TOTAL):
     """
     반환: (state, seconds)
       - GREEN이면 seconds = GREEN 남은 시간
-      - YELLOW(마지막 1초) / RED이면 seconds = 다음 GREEN까지 대기 시간
+      - YELLOW(마지막 1초) / RED이면 seconds = 다음 GREEN까지 대기 시간(역카운트)
     """
     seg = next((x for x in tl if x[0] == my_dir), None)
     if not seg:
         return "RED", None
     _, L, start, end = seg
 
+    # 내 GREEN 구간
     if start <= t_now <= end:
         g_left = end - t_now + 1
         if g_left == 1:
-            # 마지막 1초는 YELLOW, 디스플레이는 다음 GREEN까지 대기(TOTAL)
-            return "YELLOW", total
+            # ← (버그 수정) YELLOW에서도 다음 GREEN까지 '대기 시간'을 계산해서 표시
+            t_to_start = start - t_now
+            if t_to_start <= 0:
+                t_to_start += total
+            return "YELLOW", t_to_start
         else:
             return "GREEN", g_left
-    # 대기 구간(RED): 다음 GREEN까지 남은 시간
+
+    # RED 구간: 다음 GREEN까지 대기
     t_to_start = start - t_now
     if t_to_start <= 0:
         t_to_start += total
     return "RED", t_to_start
+
 
 # ---- 메인 루프 ----
 traffic_light = TrafficLight()
