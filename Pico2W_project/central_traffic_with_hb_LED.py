@@ -10,6 +10,41 @@
 
 # central_traffic_with_hb.py  (Raspberry Pi 5 / Python 3)
 import socket, json, time
+import os
+
+# ===== 추가: 내 방향 / LED 핀팩토리 기본값 =====
+MY_DIR = os.environ.get("MY_DIR", "N")          # 내 방향: N/E/S/W
+os.environ.setdefault("GPIOZERO_PIN_FACTORY", "lgpio")
+
+# ===== 추가: 물리 LED (BCM 핀) =====
+PIN_RED, PIN_YELLOW, PIN_GREEN = 17, 27, 22
+try:
+    from gpiozero import LED
+    _GPIO_OK = True
+except Exception as e:
+    print(f"[WARN] gpiozero unavailable: {e}")
+    _GPIO_OK = False
+
+class TrafficLight:
+    def __init__(self, r=PIN_RED, y=PIN_YELLOW, g=PIN_GREEN):
+        self.ok = _GPIO_OK
+        if self.ok:
+            self.red = LED(r); self.yellow = LED(y); self.green = LED(g)
+            self.all_off()
+    def all_off(self):
+        if not self.ok: return
+        self.red.off(); self.yellow.off(); self.green.off()
+    def set_state(self, state: str):
+        """state in {'GREEN','YELLOW','RED'}"""
+        if not self.ok: return
+        self.all_off()
+        s = (state or "").upper()
+        if s == "GREEN": self.green.on()
+        elif s == "YELLOW": self.yellow.on()
+        else: self.red.on()
+    def close(self):
+        if not self.ok: return
+        self.all_off()
 
 # ---- 설정 ----
 BCAST_IP, BCAST_PORT = "255.255.255.255", 5005  # 신호 브로드캐스트
@@ -20,130 +55,4 @@ CAR_THRESH = 3        # 3대 이상이면 혼잡
 HB_TTL = 3.5          # 최근 3.5초 내 하트비트만 유효
 
 # ---- 소켓 준비 ----
-bcast = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-bcast.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-hb = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-hb.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-hb.bind(("0.0.0.0", HB_PORT))
-hb.setblocking(False)
-
-# ---- 차량 DB(uid -> {dir,last}) ----
-vehicles = {}
-
-def pump_hb(now):
-    """하트비트 수신 버퍼를 비우며 DB 갱신"""
-    while True:
-        try:
-            data, addr = hb.recvfrom(256)
-        except BlockingIOError:
-            break
-        except Exception:
-            break
-        try:
-            obj = json.loads(data)
-            uid = str(obj.get("uid",""))
-            d   = obj.get("dir","")
-            if uid and d in ORDER:
-                vehicles[uid] = {"dir": d, "last": now}
-        except Exception:
-            pass  # 이상 패킷 무시
-
-def counts_from_db(now):
-    """TTL 내 차량만 집계하고, 오래된 항목은 제거"""
-    counts = {d:0 for d in ORDER}
-    drop = []
-    for uid, rec in list(vehicles.items()):
-        if (now - rec["last"]) <= HB_TTL:
-            counts[rec["dir"]] += 1
-        else:
-            drop.append(uid)
-    for uid in drop:
-        vehicles.pop(uid, None)
-    return counts
-
-def decide_segments(car_counts):
-    """(원래 규칙) 단 1방향만 혼잡이면 8/4/4/4, 그 외는 5/5/5/5"""
-    congested = [d for d in ORDER if car_counts.get(d, 0) >= CAR_THRESH]
-    if len(congested) == 1:
-        seg = {d: (8 if d in congested else 4) for d in ORDER}
-    else:
-        seg = {d: 5 for d in ORDER}
-    assert sum(seg.values()) == TOTAL
-    return seg, congested
-
-def build_timeline(segments):
-    """20..1 카운트다운 윈도우에 각 방향 슬롯 배치"""
-    tl, t = [], TOTAL
-    for d in ORDER:
-        L = segments[d]
-        tl.append((d, L, t-L+1, t))  # (dir, len, start, end)
-        t -= L
-    return tl
-
-def pack_payload(tl, t_now, segments, car_counts):
-    """
-    표시 규칙(요청사항 반영):
-      - 내 방향이 GREEN이면 t_rem = 해당 GREEN 남은 시간
-      - RED/YELLOW이면 t_rem = 다음 GREEN 시작까지 기다릴 시간
-      - 노란불은 '활성 구간의 마지막 1초'로 간주하고 phase='YELLOW' + t_rem=다음 GREEN까지 대기시간(TOTAL)
-    """
-    dirs = {}
-    for d, L, start, end in tl:
-        if start <= t_now <= end:
-            # 활성(=이 방향 GREEN 구간 안)
-            g_left = end - t_now + 1  # GREEN 남은 시간
-            if g_left == 1:
-                # 마지막 1초는 YELLOW로 노출, t_rem은 '다음 GREEN까지 대기시간'으로 제공
-                dirs[d] = {
-                    "phase": "YELLOW",
-                    "t_rem": TOTAL,            # 다음 사이클의 GREEN까지
-                    "g_dur": L,
-                    "cars": car_counts.get(d,0)
-                }
-            else:
-                dirs[d] = {
-                    "phase": "GREEN",
-                    "t_rem": g_left,           # GREEN 남은 시간
-                    "g_dur": L,
-                    "cars": car_counts.get(d,0)
-                }
-        else:
-            # 비활성(=이 방향은 RED 상태): 다음 GREEN 시작까지 대기시간
-            t_to_start = start - t_now
-            if t_to_start <= 0:
-                t_to_start += TOTAL
-            dirs[d] = {
-                "phase": "RED",
-                "t_rem": t_to_start,           # 다음 GREEN까지 대기
-                "g_dur": L,
-                "cars": car_counts.get(d,0)
-            }
-    return {
-        "src":"central_hb_v1",
-        "schema":1,
-        "total":TOTAL,
-        "order":ORDER,
-        "directions":dirs
-    }
-
-# ---- 메인 루프 ----
-cycle = 0
-while True:
-    now = time.time()
-    pump_hb(now)
-    car_counts = counts_from_db(now)
-    segments, congested = decide_segments(car_counts)
-    print(f"[cycle {cycle}] counts={car_counts} congested={congested} segments={segments}")
-
-    tl = build_timeline(segments)
-    for t_now in range(TOTAL, 0, -1):
-        now = time.time()
-        pump_hb(now)                   # 주기 중에도 수신/만료 갱신
-        car_counts = counts_from_db(now)
-
-        payload = pack_payload(tl, t_now, segments, car_counts)
-        bcast.sendto(json.dumps(payload).encode(), (BCAST_IP, BCAST_PORT))
-        time.sleep(1)
-
-    cycle += 1
+bc
