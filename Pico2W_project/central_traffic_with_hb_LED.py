@@ -120,19 +120,42 @@ def build_timeline(segments):
         t -= L
     return tl
 
-def pack_payload(tl, t_now, segments, car_counts):
-    """현재 시각 t_now에 대한 directions 패키징 (원본 포맷 유지)"""
-    dirs = {}
+def pack_payload(tl, t_now, segments, car_counts, my_dir):
+    """내 방향(my_dir)에 대한 정보만 패키징"""
     for d, L, start, end in tl:
+        if d != my_dir:  # 내 방향이 아니면 스킵
+            continue
+            
         if start <= t_now <= end:
-            dirs[d] = {"phase":"GREEN", "t_rem": end - t_now + 1, "g_dur": L, "cars": car_counts.get(d,0)}
+            # GREEN: 남은 시간이 역순으로 감소
+            my_info = {
+                "phase": "GREEN", 
+                "t_rem": t_now - start + 1,
+                "g_dur": L, 
+                "cars": car_counts.get(d, 0)
+            }
         else:
-            t_to_start = start - t_now
-            if t_to_start <= 0:
-                t_to_start += TOTAL
-            dirs[d] = {"phase":"RED", "t_rem": t_to_start, "g_dur": L, "cars": car_counts.get(d,0)}
-    return {"src":"central_hb_v1", "schema":1, "total":TOTAL, "order":ORDER, "directions":dirs}
-
+            # RED: 다음 GREEN까지 남은 시간
+            if t_now > end:
+                t_to_start = TOTAL - t_now + start
+            else:
+                t_to_start = start - t_now
+            my_info = {
+                "phase": "RED", 
+                "t_rem": t_to_start, 
+                "g_dur": L, 
+                "cars": car_counts.get(d, 0)
+            }
+        
+        return {
+            "src": "central_hb_v1", 
+            "schema": 1, 
+            "dir": my_dir,  # 내 방향 표시
+            "phase": my_info["phase"],
+            "t_rem": my_info["t_rem"],
+            "g_dur": my_info["g_dur"],
+            "cars": my_info["cars"]
+        }
 # ===== 내 방향 LED/표시용 계산(한 곳에서 결정) =====
 def mydir_phase_and_display_seconds(tl, t_now, my_dir, total=TOTAL):
     """
@@ -172,7 +195,7 @@ try:
         pump_hb(now)
         car_counts = counts_from_db(now)
         segments, congested = decide_segments(car_counts)
-        print(f"[cycle {cycle}] counts={car_counts} congested={congested} segments={segments}")
+        # print(f"[cycle {cycle}] counts={car_counts} congested={congested} segments={segments}")
 
         tl = build_timeline(segments)
         for t_now in range(TOTAL, 0, -1):
