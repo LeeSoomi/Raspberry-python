@@ -9,9 +9,11 @@
 # BCM 기준 기본 핀: RED=17, YELLOW=27, GREEN=22
 
 
-# central_traffic_with_hb.py  (Raspberry Pi 5 / Python 3)
+# central_traffic_with_hb_LED.py  (Raspberry Pi 5 / Python 3)
+# - 브로드캐스트/하트비트 로직은 그대로
+# - 물리 LED는 "내가 있는 방향(MY_DIR)"만 표시: GREEN/YELLOW, 그 외엔 RED
+
 import socket, json, time
-from collections import defaultdict
 
 # ---- 설정 ----
 BCAST_IP, BCAST_PORT = "255.255.255.255", 5005  # 신호 브로드캐스트
@@ -21,12 +23,16 @@ ORDER = ["N","E","S","W"]
 CAR_THRESH = 3        # 3대 이상이면 혼잡
 HB_TTL = 3.5          # 최근 3.5초 내 하트비트만 유효
 
+# <<<<<< 중요한 설정: 내가 서 있는 방향 >>>>>>
+MY_DIR = "N"          # N/E/S/W 중 선택
+
 # ---- GPIO 신호등 (BCM 번호) ----
 PIN_RED, PIN_YELLOW, PIN_GREEN = 17, 27, 22
 try:
     from gpiozero import LED
     _GPIO_OK = True
-except Exception:
+except Exception as e:
+    print(f"[WARN] gpiozero error: {e}")
     _GPIO_OK = False
 
 class TrafficLight:
@@ -36,7 +42,7 @@ class TrafficLight:
             self.red = LED(r); self.yellow = LED(y); self.green = LED(g)
             self.all_off()
         else:
-            print("[WARN] gpiozero 미탑재/비지원: 물리 LED는 비활성입니다.")
+            print("[WARN] 물리 LED 비활성(소프트만 동작)")
 
     def all_off(self):
         if not self.ok: return
@@ -92,7 +98,7 @@ def counts_from_db(now):
     """TTL 내 차량만 집계하고, 오래된 항목은 제거"""
     counts = {d:0 for d in ORDER}
     drop = []
-    for uid, rec in vehicles.items():
+    for uid, rec in list(vehicles.items()):
         if (now - rec["last"]) <= HB_TTL:
             counts[rec["dir"]] += 1
         else:
@@ -102,7 +108,7 @@ def counts_from_db(now):
     return counts
 
 def decide_segments(car_counts):
-    """정책: 단 1방향만 혼잡이면 8/4/4/4, 그 외는 5/5/5/5"""
+    """(원래 규칙) 단 1방향만 혼잡이면 8/4/4/4, 그 외는 5/5/5/5"""
     congested = [d for d in ORDER if car_counts.get(d, 0) >= CAR_THRESH]
     if len(congested) == 1:
         seg = {d: (8 if d in congested else 4) for d in ORDER}
@@ -120,21 +126,31 @@ def build_timeline(segments):
         t -= L
     return tl
 
-def current_led_state(tl, t_now):
+def mydir_led_state(tl, t_now, my_dir):
     """
-    LED 표시 규칙:
-      - 현재 활성 방향의 남은 시간이 1초면 YELLOW
-      - 활성 구간의 그 외 시간은 GREEN
-      - 활성 구간이 아니면 RED  (단색 LED 하나로 '대표 상태'만 표현)
+    내 방향만 판단해서 LED 상태 반환:
+      - 내 구간 안이면 남은 1초: YELLOW, 그 외 GREEN
+      - 내 구간 밖이면 RED (대기)
+    함께, 표시용 남은시간도 반환:
+      - GREEN/YELLOW일 때: 내 GREEN 남은시간
+      - RED일 때: 내 GREEN 시작까지 남은 대기시간
     """
-    for d, L, start, end in tl:
-        if start <= t_now <= end:
-            t_rem = end - t_now + 1
-            return ("YELLOW" if t_rem == 1 else "GREEN"), d, t_rem
-    return "RED", None, None
+    # 우선 내 세그먼트 찾기
+    seg = next((x for x in tl if x[0] == my_dir), None)
+    if not seg:
+        return "RED", None
+    d, L, start, end = seg
+    if start <= t_now <= end:
+        t_rem = end - t_now + 1
+        return ("YELLOW" if t_rem == 1 else "GREEN"), t_rem
+    # 대기시간(내 GREEN 시작까지)
+    t_to_start = start - t_now
+    if t_to_start <= 0:
+        t_to_start += TOTAL
+    return "RED", t_to_start
 
 def pack_payload(tl, t_now, segments, car_counts):
-    """현재 시각 t_now에 대한 directions 패키징"""
+    """현재 시각 t_now에 대한 directions 패키징(브로드캐스트용)"""
     dirs = {}
     for d, L, start, end in tl:
         if start <= t_now <= end:
@@ -163,13 +179,16 @@ try:
             pump_hb(now)                   # 주기 중에도 수신/만료 갱신
             car_counts = counts_from_db(now)
 
-            # --- 물리 LED 업데이트 ---
-            led_state, dir_now, t_rem = current_led_state(tl, t_now)
+            # --- 내 방향만 보고 물리 LED 갱신 ---
+            led_state, remain = mydir_led_state(tl, t_now, MY_DIR)
             traffic_light.set_state(led_state)
             # 콘솔 확인(원하면 주석처리)
-            if dir_now:
-                print(f"STATE={led_state:<6} DIR={dir_now} RT={t_rem}s cars={car_counts.get(dir_now,0)}")
+            if led_state == "RED":
+                print(f"[LED] DIR={MY_DIR} STATE=RED  WAIT={remain:>2}s  cars={car_counts.get(MY_DIR,0)}")
+            else:
+                print(f"[LED] DIR={MY_DIR} STATE={led_state:<6} G_LEFT={remain:>2}s cars={car_counts.get(MY_DIR,0)}")
 
+            # 브로드캐스트(기존 포맷 유지)
             payload = pack_payload(tl, t_now, segments, car_counts)
             bcast.sendto(json.dumps(payload).encode(), (BCAST_IP, BCAST_PORT))
             time.sleep(1)
