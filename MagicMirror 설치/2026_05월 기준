@@ -1,0 +1,51 @@
+1. 설치 전 기본 패키지 준비
+sudo apt update
+sudo apt install -y git curl build-essential
+
+
+2. Node.js 설치
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+설치 확인:
+
+node -v
+npm -v
+
+
+3. MagicMirror 다운로드
+git clone https://github.com/MichMich/MagicMirror.git
+
+
+4. MagicMirror 폴더로 이동 후 설치
+cd MagicMirror
+npm install
+
+
+5. 설정 파일 생성
+cp config/config.js.sample config/config.js
+
+설정 파일 열기:
+nano config/config.js
+
+아래 부분을 한국어 기준으로 수정:
+
+language: "ko",
+locale: "ko-KR",
+timeFormat: 24,
+units: "metric",
+
+저장 후 종료는 Ctrl + O, Enter, Ctrl + X.
+
+6. 매직미러 실행 테스트
+
+기본 실행:
+npm start
+
+화면이 안 뜨거나 검은 화면이면:
+
+DISPLAY=:0 npm start
+
+그래도 문제가 있으면:
+
+npm start -- --disable-gpu
