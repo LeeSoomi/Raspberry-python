@@ -1,4 +1,4 @@
-# pip3 install icrawler
+# sudo apt install pip3 python3 icrawler
 
 from icrawler.builtin import BingImageCrawler
 
